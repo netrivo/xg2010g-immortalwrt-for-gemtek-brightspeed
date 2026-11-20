@@ -22,6 +22,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 350
     permissions:
       contents: write
     steps:
@@ -112,7 +113,26 @@ jobs:
       - name: Build Firmware
         shell: bash
         run: |
-          make -j2 world BUILD_LOG=1 2>&1 | tee build.log
+          rm -f build.status
+          (
+            make -j"$(nproc)" world BUILD_LOG=1 > build.log 2>&1
+            echo $? > build.status
+          ) &
+          pid=$!
+          while [ ! -f build.status ]; do
+            sleep 300
+            [ -f build.status ] && break
+            echo "=== $(date -u +%H:%M:%S) build heartbeat ==="
+            tail -n 3 build.log || true
+            ps -eo etime,comm,args --sort=-etime \
+              | grep -E 'cc1plus|cc1 |g\+\+|ninja|rustc' \
+              | grep -v grep | head -5 || true
+          done
+          wait "$pid" || true
+          status=$(cat build.status)
+          echo "=== build finished with status $status ==="
+          tail -n 120 build.log || true
+          exit "$status"
 
       - name: Verbose retry on build failure
         if: failure()
