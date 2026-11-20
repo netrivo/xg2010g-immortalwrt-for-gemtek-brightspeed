@@ -5,106 +5,65 @@ on:
     - cron: '0 19 */3 * *'
   workflow_dispatch:
 
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
 jobs:
   sync-upstream:
-    runs-on: ubuntu-latest
+    # Self-hosted runner on alex@10.10.30.6: GitHub-hosted minutes for this
+    # private repo are exhausted, self-hosted runners are not metered.
+    runs-on: [self-hosted, linux, x64]
+    env:
+      # Persistent clone owned by this job. It only ever holds tracked sources;
+      # the build artifacts of this repo live in a separate tree, so nothing
+      # generated can reach the sync commit.
+      SYNC_DIR: /home/alex/ci/sync-main
+      UPSTREAM_URL: https://github.com/immortalwrt/immortalwrt.git
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Configure Git
-        run: |
-          git config user.email "naoki66@users.noreply.github.com"
-          git config user.name "naoki66"
-
-      - name: Add upstream remote
-        run: |
-          git remote add upstream https://github.com/immortalwrt/immortalwrt.git 2>/dev/null || true
-          git remote set-url upstream https://github.com/immortalwrt/immortalwrt.git
-
-      - name: Fetch upstream
-        run: git fetch upstream master
-
-      - name: Check repository relationship
-        id: check
+      - name: Sync upstream master into main
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_URL: https://github.com/${{ github.repository }}.git
         run: |
-          LOCAL=$(git rev-parse HEAD)
-          REMOTE=$(git rev-parse upstream/master)
+          set -euo pipefail
+          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
+          ghgit() { git -c "http.https://github.com/.extraheader=$AUTH" "$@"; }
+
+          mkdir -p "$(dirname "$SYNC_DIR")"
+          if [ ! -d "$SYNC_DIR/.git" ]; then
+            echo "== seeding $SYNC_DIR (full clone, slow path) =="
+            ghgit clone --no-single-branch "$REPO_URL" "$SYNC_DIR"
+          fi
+
+          cd "$SYNC_DIR"
+          git remote set-url origin "$REPO_URL"
+          ghgit fetch --prune --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
+          git checkout --force -B main origin/main
+          git reset --hard origin/main
+          git clean -ffdxq
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+          git remote add upstream "$UPSTREAM_URL" 2>/dev/null ||
+            git remote set-url upstream "$UPSTREAM_URL"
+          git fetch --no-tags upstream master
+
           if git merge-base --is-ancestor upstream/master HEAD; then
-            echo "No updates available (upstream: ${REMOTE:0:7}, local: ${LOCAL:0:7})"
-            echo "has_updates=false" >> "$GITHUB_OUTPUT"
-            echo "mode=none" >> "$GITHUB_OUTPUT"
-          elif BASE=$(git merge-base HEAD upstream/master 2>/dev/null); then
-            echo "Updates available (shared base: ${BASE:0:7}, upstream: ${REMOTE:0:7})"
-            echo "has_updates=true" >> "$GITHUB_OUTPUT"
-            echo "mode=merge" >> "$GITHUB_OUTPUT"
-          else
-            LOCAL_ROOT=$(git rev-list --max-parents=0 HEAD | head -n1)
-            LOCAL_ROOT_TREE=$(git rev-parse "${LOCAL_ROOT}^{tree}")
-            # The local orphan root was created from an upstream snapshot that may be a
-            # merge commit (which has parents and is therefore NOT a root commit), so
-            # search ALL upstream commits by tree hash instead of only --max-parents=0 roots.
-            # Read via process substitution instead of a pipe: the early break must not
-            # kill git log with SIGPIPE (exit 141) under `set -e -o pipefail`.
-            MATCHING_UPSTREAM=""
-            while read -r TREE HASH; do
-              if [ "$TREE" = "$LOCAL_ROOT_TREE" ]; then
-                MATCHING_UPSTREAM=$HASH
-                break
-              fi
-            done < <(git log upstream/master --format='%T %H')
-
-            if [ -n "$MATCHING_UPSTREAM" ]; then
-              echo "Repository histories were rewritten; rebasing local commits from ${LOCAL_ROOT:0:7} (matched upstream ${MATCHING_UPSTREAM:0:7}) onto upstream ${REMOTE:0:7}."
-              echo "has_updates=true" >> "$GITHUB_OUTPUT"
-              echo "mode=rebase" >> "$GITHUB_OUTPUT"
-              echo "base=$LOCAL_ROOT" >> "$GITHUB_OUTPUT"
-            else
-              echo "::error::Repository histories have no common ancestor or matching base snapshot."
-              exit 1
-            fi
+            echo "No upstream updates (main $(git rev-parse --short HEAD), upstream $(git rev-parse --short upstream/master))"
+            exit 0
           fi
 
-      - name: Integrate upstream
-        if: steps.check.outputs.has_updates == 'true'
-        shell: bash
-        run: |
-          if [ "${{ steps.check.outputs.mode }}" = "rebase" ]; then
-            git rebase --onto upstream/master "${{ steps.check.outputs.base }}" HEAD || {
-              echo "::error::Rebase failed. Conflicts need manual resolution."
-              git diff --name-only --diff-filter=U
-              git rebase --abort || true
-              exit 1
-            }
-          else
-            git merge --no-edit upstream/master || {
-              echo "::error::Merge failed. Conflicts need manual resolution."
-              git diff --name-only --diff-filter=U
-              exit 1
-            }
+          echo "== merging upstream/master $(git rev-parse --short upstream/master) into main $(git rev-parse --short HEAD)"
+          if ! git merge --no-ff --no-edit -m "Merge upstream immortalwrt/immortalwrt into main" upstream/master; then
+            echo "::error::Merge conflicts need manual resolution"
+            git diff --name-only --diff-filter=U
+            exit 1
           fi
 
-      - name: Push to origin
-        if: steps.check.outputs.has_updates == 'true'
-        shell: bash
-        run: |
-          if [ "${{ steps.check.outputs.mode }}" = "rebase" ]; then
-            git push --force-with-lease origin HEAD:master
-          else
-            git push origin master
-          fi
-
-      - name: Show result
-        if: always()
-        run: |
-          echo "=== Sync Result ==="
-          git log --oneline -5 || true
-          echo "=== Remote Status ==="
-          git remote -v || true
+          echo "== pushing $(git rev-parse --short HEAD) to main =="
+          ghgit push origin HEAD:main
