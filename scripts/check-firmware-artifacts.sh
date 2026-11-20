@@ -37,12 +37,12 @@ while IFS= read -r symbol; do
 	symbol="${symbol%=y}"
 	devices+=("${symbol##*_DEVICE_}")
 done < <(
-	grep -E '^CONFIG_(TARGET_airoha_an7581_DEVICE|TARGET_DEVICE_airoha_an7581_DEVICE)_(gemtek_(xr1710g(-ubi)?|xg2010g(-2g)?-ubi)|nokia_xg-040g-md-ubi)=y$' \
+	grep -E '^CONFIG_(TARGET_airoha_an7581_DEVICE|TARGET_DEVICE_airoha_an7581_DEVICE)_gemtek_xg2010g(-2g)?(-ubi)?=y$' \
 		"$config_file" || true
 )
 
 (( ${#devices[@]} > 0 )) || {
-	echo "no supported Gemtek firmware profile is selected in $config_file" >&2
+	echo "no XG2010G firmware profile is selected in $config_file" >&2
 	exit 1
 }
 
