@@ -57,8 +57,9 @@ bash scripts/sync-brightspeed.sh
 ```
 
 脚本用 `git merge-tree --merge-base=<上次快照>` 做三点合并，然后执行
-`scripts/apply-xg2010g-trim.sh` 重新应用 XG2010G-only 精简。出现冲突时脚本会停下，
-按提示解决后再提交。
+`scripts/apply-xg2010g-trim.sh` 重新应用 XG2010G-only 精简。如果冲突只落在设备定义、
+DTS 或已删除路径内，脚本会用 `-X ours` 自动重试：保留本地裁剪，同时接受上游对
+XG2010G 的修改。其他冲突仍会停下，按提示解决后再提交。
 
 ## 检查
 

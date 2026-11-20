@@ -19,13 +19,10 @@ if grep -H '^TARGET_DEVICES += ' target/linux/airoha/image/an7583.mk \
 	err "an7583/en7523 still define target devices"
 fi
 
-allowed_dts='an7581-gemtek-xg2010g-ubi.dts an7581-xg2010g.dts an7581.dtsi'
 for f in target/linux/airoha/dts/*; do
 	base=$(basename "$f")
-	case " $allowed_dts " in
-		*" $base "*) ;;
-		*) err "unexpected DTS file: $f" ;;
-	esac
+	[[ "$base" == "an7581.dtsi" || "$base" == *xg2010g* ]] && continue
+	err "unexpected DTS file: $f"
 done
 
 for f in *.config; do
