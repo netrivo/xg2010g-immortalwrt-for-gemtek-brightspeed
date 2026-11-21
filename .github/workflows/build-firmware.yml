@@ -108,28 +108,41 @@ jobs:
       - name: Download sources
         shell: bash
         run: |
+          set -o pipefail
           make download -j$(nproc) BUILD_LOG=1 2>&1 | tee download.log
 
       - name: Build Firmware
         shell: bash
         run: |
           rm -f build.status
+          set -m
           (
             make -j"$(nproc)" world BUILD_LOG=1 > build.log 2>&1
             echo $? > build.status
           ) &
           pid=$!
+          set +m
+          i=0
           while [ ! -f build.status ]; do
-            sleep 300
-            [ -f build.status ] && break
-            echo "=== $(date -u +%H:%M:%S) build heartbeat ==="
-            tail -n 3 build.log || true
-            ps -eo etime,comm,args --sort=-etime \
-              | grep -E 'cc1plus|cc1 |g\+\+|ninja|rustc' \
-              | grep -v grep | head -5 || true
+            sleep 60
+            i=$((i + 1))
+            if grep -qE 'ERROR: .*failed to build|make: \*\*\*' build.log; then
+              echo "=== build reported an error, stopping the process group ==="
+              kill -TERM -- -"$pid" 2>/dev/null || true
+              sleep 10
+              kill -KILL -- -"$pid" 2>/dev/null || true
+              break
+            fi
+            if [ $((i % 5)) -eq 0 ]; then
+              echo "=== $(date -u +%H:%M:%S) build heartbeat ==="
+              tail -n 3 build.log || true
+              ps -eo etime,comm,args --sort=-etime \
+                | grep -E 'cc1plus|cc1 |g\+\+|ninja|rustc' \
+                | grep -v grep | head -5 || true
+            fi
           done
           wait "$pid" || true
-          status=$(cat build.status)
+          status=$(cat build.status 2>/dev/null || echo 1)
           echo "=== build finished with status $status ==="
           tail -n 120 build.log || true
           exit "$status"
