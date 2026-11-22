@@ -40,7 +40,7 @@ case "$selected" in
 esac
 
 bash scripts/apply-xg2010g-package-policy.sh --check 2010.config \
-	|| err "optional third-party packages are selected in 2010.config"
+	|| err "optional third-party packages are installed (=y) in 2010.config"
 
 for pkg in \
 	luci-app-onu \
@@ -55,6 +55,15 @@ for pkg in \
 	grep -qx "CONFIG_PACKAGE_${pkg}=y" 2010.config \
 		|| err "required XG2010G package is missing: $pkg"
 done
+
+grep -qx 'SAVE_INSTALLED_PKGS=1' package/base-files/files/sbin/sysupgrade \
+	|| err "sysupgrade does not save installed packages by default"
+[[ -x package/base-files/files/usr/sbin/xg2010g-restore-packages ]] \
+	|| err "package restore helper is missing or not executable"
+[[ -s package/base-files/files/lib/upgrade/keep.d/xg2010g-configs ]] \
+	|| err "XG2010G sysupgrade keep list is missing"
+[[ -x package/base-files/files/etc/init.d/xg2010g-restore-packages ]] \
+	|| err "package restore init script is missing or not executable"
 
 for path in \
 	package/boot/uboot-airoha \

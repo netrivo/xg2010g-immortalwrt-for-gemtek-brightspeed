@@ -19,6 +19,10 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+concurrency:
+  group: xg2010g-firmware
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -81,6 +85,9 @@ jobs:
 
       - name: Apply feed patches
         run: FEED_PATCHES_STRICT=1 bash scripts/apply-feed-patches.sh
+
+      - name: Configure extras package feed
+        run: bash scripts/set-extras-repo.sh "$GITHUB_REPOSITORY" '${{ steps.version.outputs.build_id }}'
 
       - name: Configure
         run: |
@@ -194,6 +201,86 @@ jobs:
             --config .config \
             --kernel-config "$kernel_config" \
             --manifest "$manifest"
+
+      - name: Publish extras package repository
+        if: success()
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUILD_ID: ${{ steps.version.outputs.build_id }}
+        run: |
+          set -euo pipefail
+          topdir=$PWD
+          arch=$(find bin/packages -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | head -n 1)
+          pkgall=$(find staging_dir/packages -mindepth 1 -maxdepth 1 -type d -printf '%p\n' | head -n 1)
+          test -n "$arch"
+          test -n "$pkgall"
+          work=$(mktemp -d)
+          mkdir -p "$work/$BUILD_ID/kmods"
+
+          # Third-party feeds are published per feed; the device gets one
+          # packages.adb URL per feed from scripts/set-extras-repo.sh.
+          for feed in helloworld pushbot app_airoha onu_config pon_drivers argon; do
+            src="bin/packages/$arch/$feed"
+            compgen -G "$src/*.apk" >/dev/null || {
+              echo "missing packages for feed $feed" >&2
+              exit 1
+            }
+            mkdir -p "$work/$BUILD_ID/$feed"
+            cp -aL "$src/." "$work/$BUILD_ID/$feed/"
+          done
+
+          # Kernel modules are shared by the whole target and live in the
+          # merged package directory, not in one of the feed directories.
+          found=0
+          while IFS= read -r -d '' apk; do
+            cp -aL "$apk" "$work/$BUILD_ID/kmods/"
+            found=1
+          done < <(find "$pkgall" -maxdepth 1 -name 'kmod-*.apk' -print0)
+          [ "$found" -eq 1 ]
+          (
+            cd "$work/$BUILD_ID/kmods"
+            "$topdir/staging_dir/host/bin/apk" mkndx \
+              --root "$topdir" --keys-dir "$topdir" --allow-untrusted \
+              --sign "$topdir/private-key.pem" --output packages.adb ./*.apk
+          )
+
+          remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          repo=$(mktemp -d)
+          if git clone --quiet --depth 1 --branch packages "$remote" "$repo" 2>/dev/null; then
+            git -C "$repo" checkout --quiet --orphan "packages-$BUILD_ID"
+          else
+            rm -rf "$repo"
+            git init --quiet "$repo"
+            git -C "$repo" remote add origin "$remote"
+            git -C "$repo" symbolic-ref HEAD refs/heads/packages
+          fi
+
+          rm -rf "$repo/$BUILD_ID"
+          cp -a "$work/$BUILD_ID" "$repo/"
+
+          # Keep the ten newest build directories; raw URLs for older builds
+          # stop working at that point.
+          mapfile -t builds < <(
+            find "$repo" -maxdepth 1 -mindepth 1 -type d -name '[0-9]*' \
+              -printf '%f\n' | LC_ALL=C sort
+          )
+          if (( ${#builds[@]} > 10 )); then
+            for old in "${builds[@]:0:${#builds[@]}-10}"; do
+              rm -rf "$repo/$old"
+            done
+          fi
+
+          git -C "$repo" config user.name "github-actions[bot]"
+          git -C "$repo" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$repo" add -A
+          if git -C "$repo" diff --cached --quiet; then
+            echo "extras package repository unchanged"
+          else
+            git -C "$repo" commit --quiet -m "packages: $BUILD_ID"
+            git -C "$repo" push --force origin HEAD:packages
+            echo "published extras package repository for $BUILD_ID"
+          fi
 
       - name: Check build status
         if: always()

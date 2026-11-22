@@ -1,13 +1,16 @@
 # Packages excluded from the default XG2010G image.
 #
-# A trailing '*' matches a package-name prefix.  Exact names are also written
-# as "# CONFIG_PACKAGE_<name> is not set" so a Kconfig default cannot silently
-# re-enable them.  Dependencies of packages that are still required may still
-# be pulled back in by Kconfig; that is expected.
+# These packages are built as modules (=m): their .apk files are published in
+# the per-build extras repository so a device can install them later, but the
+# image installer only installs =y packages, so they never end up in the
+# default image.  A trailing '*' matches a package-name prefix.  Exact names
+# are also written as "CONFIG_PACKAGE_<name>=m" when absent, so a Kconfig
+# default cannot silently re-enable them in the image.
 #
 # This file is applied by scripts/apply-xg2010g-package-policy.sh and enforced
-# by scripts/check-xg2010g-only.sh.  To opt a package back in, remove its line
-# here, set it to =y in 2010.config, and rerun the policy check.
+# by scripts/check-xg2010g-only.sh.  To ship a package in the image itself,
+# remove its line here, set it to =y in 2010.config, and rerun the policy
+# check.
 #
 # Proxy / bypass stack
 luci-app-openclash*

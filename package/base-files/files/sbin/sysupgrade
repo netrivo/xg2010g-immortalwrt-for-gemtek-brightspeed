@@ -15,7 +15,10 @@ ADD_PROVISIONING=1
 SAVE_OVERLAY=0
 SAVE_OVERLAY_PATH=
 export SAVE_PARTITIONS=1
-SAVE_INSTALLED_PKGS=0
+# Keep the installed-package list in every configuration backup.  The new
+# image uses it to reinstall packages that the user added to the overlay
+# (optional third-party packages are not part of the default image).
+SAVE_INSTALLED_PKGS=1
 SKIP_UNCHANGED=0
 CONF_IMAGE=
 CONF_BACKUP_LIST=0
@@ -85,7 +88,7 @@ upgrade-option:
 	             On whole-disk image targets this writes the full image,
 	             erasing any partitions the image lacks.
 	-k           include in backup a list of current installed packages at
-	             $INSTALLED_PACKAGES
+	             $INSTALLED_PACKAGES (enabled by default on XG2010G)
 	-s           stay on current partition (for dual firmware devices)
 	-P           create provisioning partition to keep sensitive data across
 	             factory resets. This is the default.

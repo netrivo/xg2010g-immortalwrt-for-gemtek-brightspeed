@@ -1,0 +1,17 @@
+# Keep UCI configuration and the small configuration directories used by the
+# optional extras across sysupgrade.  The restore service reinstalls
+# user-installed packages after the upgrade, so their configuration has to
+# survive even though the packages are not in the new image.
+#
+# Do not add package binaries or large rule sets here: sysupgrade builds this
+# backup in /tmp (RAM) before flashing.
+/etc/config/
+/etc/openclash/config/
+/etc/passwall/
+/etc/ssrplus/
+/etc/mosdns/
+/etc/xray/
+/etc/lucky/
+/etc/zerotier/
+/etc/vlmcsd/
+/etc/udpxy/

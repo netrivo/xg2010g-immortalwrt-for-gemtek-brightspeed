@@ -81,7 +81,7 @@ if [ -f 2010.config ]; then
 	rm -f 2010.config.bak
 fi
 
-# 6. 默认镜像只保留 XG2010G/PON/系统必需包，可选第三方包由本地策略排除
+# 6. 可选第三方包以 =m 编入 extras 仓库，不安装进默认镜像
 if [ -f 2010.config ]; then
 	bash scripts/apply-xg2010g-package-policy.sh 2010.config
 fi

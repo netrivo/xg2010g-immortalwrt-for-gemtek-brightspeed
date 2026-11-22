@@ -205,6 +205,7 @@ define Package/base-files/install
 		$(1)/CONTROL \
 		$(1)/dev \
 		$(1)/etc/config \
+		$(1)/etc/backup \
 		$(1)/etc/crontabs \
 		$(1)/etc/rc.d \
 		$(1)/overlay \

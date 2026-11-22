@@ -43,41 +43,65 @@ def blocked(name):
     return False
 
 
+def keep_off(name):
+    # These are boolean sub-options of a LuCI app, not standalone packages.
+    # Setting them to =m is invalid (and would pull their selected packages
+    # back into the image), so leave them off.
+    return "_INCLUDE_" in name or name.endswith("_Nftables_Transparent_Proxy")
+
+
 lines = Path(config_path).read_text().splitlines()
 out = []
-selected = []
+installed = []
 seen = set()
 
 for line in lines:
-    m = re.match(r"^CONFIG_PACKAGE_(\S+)=[ym]$", line)
+    m = re.match(r"^CONFIG_PACKAGE_(\S+)=([ym])$", line)
     if m and blocked(m.group(1)):
-        name = m.group(1)
-        selected.append(name)
-        out.append(f"# CONFIG_PACKAGE_{name} is not set")
+        name, state = m.group(1), m.group(2)
         seen.add(name)
+        if check:
+            if state == "y":
+                installed.append(name)
+            out.append(line)
+        elif keep_off(name):
+            out.append(f"# CONFIG_PACKAGE_{name} is not set")
+        else:
+            # Optional packages are compiled as modules so their .apk files
+            # land in the per-build extras repository, but are never installed
+            # into the default image (the image installer only installs =y).
+            out.append(f"CONFIG_PACKAGE_{name}=m")
         continue
+
     m = re.match(r"^# CONFIG_PACKAGE_(\S+) is not set$", line)
     if m and blocked(m.group(1)):
-        seen.add(m.group(1))
+        name = m.group(1)
+        seen.add(name)
+        if check or keep_off(name):
+            out.append(line)
+        else:
+            out.append(f"CONFIG_PACKAGE_{name}=m")
+        continue
+
     out.append(line)
 
 if check:
-    if selected:
+    if installed:
         print(
-            "blocked packages are selected in "
+            "blocked packages are installed into the image in "
             + config_path
             + ": "
-            + ", ".join(sorted(set(selected))),
+            + ", ".join(sorted(set(installed))),
             file=sys.stderr,
         )
         sys.exit(1)
     sys.exit(0)
 
-# Make the exclusion explicit even when the symbol is absent, so a Kconfig
-# default cannot silently turn it back on.
+# Make the module selection explicit even when the symbol is absent, so a
+# Kconfig default cannot silently turn it back into an image package.
 for pattern, prefix in rules:
     if not prefix and pattern not in seen:
-        out.append(f"# CONFIG_PACKAGE_{pattern} is not set")
+        out.append(f"CONFIG_PACKAGE_{pattern}=m")
 
 Path(config_path).write_text("\n".join(out) + "\n")
 PY
