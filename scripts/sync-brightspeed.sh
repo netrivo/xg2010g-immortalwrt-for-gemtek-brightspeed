@@ -19,6 +19,7 @@ if [[ "$new" == "$base" ]]; then
 	echo "already up to date: $new"
 	exit 0
 fi
+old_head=$(git rev-parse HEAD)
 
 echo "merging brightspeed ${base:0:8} -> ${new:0:8}"
 out=$(mktemp)
@@ -34,7 +35,9 @@ if ! git merge-tree --write-tree --name-only --no-messages --merge-base="$base" 
 		target/linux/airoha/dts/*|\
 		target/linux/airoha/an7583/base-files/*|\
 		package/boot/uboot-airoha/*|\
-		package/boot/uboot-tools/uboot-envtools/files/airoha_an7583)
+		package/boot/uboot-tools/uboot-envtools/files/airoha_an7583|\
+		2010.config|\
+		feeds.conf.default)
 			;;
 		*)
 			echo "  manual conflict: $path" >&2
@@ -58,6 +61,17 @@ tree=$(head -n 1 "$out")
 branch="sync/brightspeed-$(date +%Y%m%d-%H%M%S)"
 git switch -c "$branch"
 git read-tree -u --reset "$tree"
+
+# The package selection and feed list are local policy.  Keep our versions even
+# when upstream changed them, and save the upstream delta for manual review so
+# an intentional device-related change can still be cherry-picked.
+if ! git diff --quiet "$base" "$new" -- 2010.config feeds.conf.default; then
+	diff_file="${TMPDIR:-/tmp}/brightspeed-config-$(date +%Y%m%d-%H%M%S).diff"
+	git diff "$base" "$new" -- 2010.config feeds.conf.default >"$diff_file" || true
+	echo "upstream changed 2010.config/feeds.conf.default; keeping local policy"
+	echo "review upstream diff: $diff_file"
+fi
+git checkout "$old_head" -- 2010.config feeds.conf.default
 
 if ! bash scripts/apply-xg2010g-trim.sh; then
 	echo "trim/check failed on $branch" >&2

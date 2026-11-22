@@ -30,6 +30,22 @@
 
 默认构建 `2010.config` 选择 `gemtek_xg2010g-ubi`。
 
+## 默认包策略
+
+默认镜像只保留 XG2010G/PON/系统管理和 Argon 主题；代理、推送、媒体、远程组网等可选包由
+`scripts/xg2010g-package-policy.txt` 排除。`2010.config` 和 `feeds.conf.default` 是本地策略文件：
+同步 brightspeed 时保留本仓库版本，上游改动会输出 diff 供人工挑选，不会被自动合入。
+
+- 当前 UI 使用 `luci-theme-argon`（jerrykuku 的 argon feed），`luci-theme-bootstrap` 作为备用主题。
+- PON/ONU 工具（`luci-app-onu`、`luci-app-pon-status`、`luci-app-clients`、`luci-app-airoha-npu`）
+  属于设备基础，保留。
+- 要加回可选包：从 `scripts/xg2010g-package-policy.txt` 删除对应行，把 `2010.config` 里的包设为 `y`，
+  然后运行 `bash scripts/apply-xg2010g-package-policy.sh --check 2010.config` 确认。
+- 标准 sysupgrade 只保留 `/etc/config` 以及 `/etc/sysupgrade.conf`、`/lib/upgrade/keep.d` 中列出的文件，
+  不保留已安装的包。可选包不在新镜像里时，OTA 后需要重装；要随升级保留，必须放进本地镜像配置，
+  或另做 extras 包仓库。第三方 feed（helloworld、pushbot 等）默认只作为 build-time source，
+  不写入运行时 distfeeds，因此设备上通常无法直接从官方源重装这些包。
+
 ## 构建
 
 ```bash
@@ -60,6 +76,9 @@ bash scripts/sync-brightspeed.sh
 `scripts/apply-xg2010g-trim.sh` 重新应用 XG2010G-only 精简。如果冲突只落在设备定义、
 DTS 或已删除路径内，脚本会用 `-X ours` 自动重试：保留本地裁剪，同时接受上游对
 XG2010G 的修改。其他冲突仍会停下，按提示解决后再提交。
+
+`2010.config` 和 `feeds.conf.default` 始终保留本仓库版本。如果上游改动了这两个文件，
+脚本会把上游差异保存到 `/tmp/brightspeed-config-*.diff`，需要采纳时手动 cherry-pick。
 
 ## 检查
 

@@ -84,6 +84,7 @@ jobs:
 
       - name: Configure
         run: |
+          bash scripts/apply-xg2010g-package-policy.sh 2010.config
           cp 2010.config .config
           make defconfig
           BUILD_DATE='${{ steps.version.outputs.date }}' \

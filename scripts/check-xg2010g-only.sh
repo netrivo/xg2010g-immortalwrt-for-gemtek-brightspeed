@@ -39,6 +39,23 @@ case "$selected" in
 	*) err "2010.config must select exactly one XG2010G profile, got: $selected" ;;
 esac
 
+bash scripts/apply-xg2010g-package-policy.sh --check 2010.config \
+	|| err "optional third-party packages are selected in 2010.config"
+
+for pkg in \
+	luci-app-onu \
+	luci-app-pon-status \
+	luci-app-clients \
+	luci-app-airoha-npu \
+	luci-app-firewall \
+	luci-app-package-manager \
+	luci-app-ttyd \
+	luci-theme-argon \
+	luci-theme-bootstrap; do
+	grep -qx "CONFIG_PACKAGE_${pkg}=y" 2010.config \
+		|| err "required XG2010G package is missing: $pkg"
+done
+
 for path in \
 	package/boot/uboot-airoha \
 	target/linux/airoha/an7583/base-files \

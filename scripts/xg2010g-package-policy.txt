@@ -1,0 +1,68 @@
+# Packages excluded from the default XG2010G image.
+#
+# A trailing '*' matches a package-name prefix.  Exact names are also written
+# as "# CONFIG_PACKAGE_<name> is not set" so a Kconfig default cannot silently
+# re-enable them.  Dependencies of packages that are still required may still
+# be pulled back in by Kconfig; that is expected.
+#
+# This file is applied by scripts/apply-xg2010g-package-policy.sh and enforced
+# by scripts/check-xg2010g-only.sh.  To opt a package back in, remove its line
+# here, set it to =y in 2010.config, and rerun the policy check.
+#
+# Proxy / bypass stack
+luci-app-openclash*
+luci-app-passwall*
+luci-app-ssr-plus*
+3proxy
+chinadns-ng
+coreutils-nohup
+dns2socks
+dns2tcp
+haproxy
+ipt2socks
+lua-neturl
+microsocks
+mosdns
+shadowsocks-rust*
+shadowsocksr-libev*
+simple-obfs*
+sing-box
+tcping
+v2ray-geo*
+v2ray-plugin
+xray-core
+# Notification / remote access
+luci-app-pushbot
+luci-app-ddns*
+luci-app-zerotier
+ddns-go
+ddns-scripts
+zerotier
+# Media / network tools
+luci-app-lucky
+luci-app-msd_lite
+luci-app-rtp2httpd
+luci-app-timewol
+luci-app-udpxy
+luci-app-upnp
+luci-app-vlmcsd
+luci-app-wol
+igmpproxy
+lucky
+miniupnpd*
+msd_lite
+omcproxy
+rtp2httpd
+udpxy
+vlmcsd
+etherwake
+# Other optional services
+luci-app-arpbind
+luci-app-autoreboot
+luci-app-pbr
+luci-app-watchcat
+arpbind
+pbr
+watchcat
+kmod-nf-tproxy
+kmod-nft-tproxy
