@@ -47,7 +47,14 @@ def keep_off(name):
     # These are boolean sub-options of a LuCI app, not standalone packages.
     # Setting them to =m is invalid (and would pull their selected packages
     # back into the image), so leave them off.
-    return "_INCLUDE_" in name or name.endswith("_Nftables_Transparent_Proxy")
+    return "_INCLUDE_" in name or name.endswith("_Transparent_Proxy")
+
+
+def translation(name):
+    # Optional-app translations are not needed in the default image and do not
+    # have to be prebuilt: the official LuCI feed already carries them.  Leave
+    # them off instead of compiling every language as a module.
+    return name.startswith("luci-i18n-")
 
 
 lines = Path(config_path).read_text().splitlines()
@@ -61,10 +68,13 @@ for line in lines:
         name, state = m.group(1), m.group(2)
         seen.add(name)
         if check:
-            if state == "y":
+            if translation(name):
+                if state in ("y", "m"):
+                    installed.append(name)
+            elif state == "y" and not keep_off(name):
                 installed.append(name)
             out.append(line)
-        elif keep_off(name):
+        elif keep_off(name) or translation(name):
             out.append(f"# CONFIG_PACKAGE_{name} is not set")
         else:
             # Optional packages are compiled as modules so their .apk files
@@ -77,7 +87,7 @@ for line in lines:
     if m and blocked(m.group(1)):
         name = m.group(1)
         seen.add(name)
-        if check or keep_off(name):
+        if check or keep_off(name) or translation(name):
             out.append(line)
         else:
             out.append(f"CONFIG_PACKAGE_{name}=m")
@@ -88,7 +98,7 @@ for line in lines:
 if check:
     if installed:
         print(
-            "blocked packages are installed into the image in "
+            "policy-blocked packages are enabled in "
             + config_path
             + ": "
             + ", ".join(sorted(set(installed))),

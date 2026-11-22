@@ -41,6 +41,8 @@
 上游改动会输出 diff 供人工挑选，不会被自动合入。
 
 - 当前 UI 使用 `luci-theme-argon`（jerrykuku 的 argon feed），`luci-theme-bootstrap` 作为备用主题。
+- 可选插件的翻译包不会编进镜像或 extras；需要中文界面时从官方 LuCI 源安装对应
+  `luci-i18n-*` 包即可。
 - PON/ONU 工具（`luci-app-onu`、`luci-app-pon-status`、`luci-app-clients`、`luci-app-airoha-npu`）
   属于设备基础，保留。
 - 要让某个可选包进入镜像：从 `scripts/xg2010g-package-policy.txt` 删除对应行，把
@@ -63,7 +65,7 @@ XG2010G 的 `sysupgrade` 默认会把当前已安装包列表写入备份里的
 `package/base-files/files/lib/upgrade/keep.d/xg2010g-configs` 跨升级保留。这里只放配置，不要
 加入插件二进制或大型规则集，因为 sysupgrade 在刷写前用 `/tmp`（内存）生成备份。
 
-extras 仓库发布在仓库的 `packages` 分支，按 build ID 分目录，只保留最近 10 次构建：
+extras 仓库发布在仓库的 `packages` 分支，按 build ID 分目录，只保留最近 3 次构建：
 
 ```text
 https://raw.githubusercontent.com/<owner>/<repo>/packages/<build-id>/<feed>/packages.adb

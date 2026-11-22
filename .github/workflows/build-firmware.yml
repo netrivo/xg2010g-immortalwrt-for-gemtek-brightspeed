@@ -259,14 +259,17 @@ jobs:
           rm -rf "$repo/$BUILD_ID"
           cp -a "$work/$BUILD_ID" "$repo/"
 
-          # Keep the ten newest build directories; raw URLs for older builds
-          # stop working at that point.
+          # Keep the three newest build directories.  Each build carries a few
+          # hundred MB of .apk files, so retaining ten would push the branch
+          # toward GitHub's repository size limit and make every publish clone
+          # unnecessarily large.  Raw URLs for older builds stop working after
+          # that point; OTA always uses the new image's build ID.
           mapfile -t builds < <(
             find "$repo" -maxdepth 1 -mindepth 1 -type d -name '[0-9]*' \
               -printf '%f\n' | LC_ALL=C sort
           )
-          if (( ${#builds[@]} > 10 )); then
-            for old in "${builds[@]:0:${#builds[@]}-10}"; do
+          if (( ${#builds[@]} > 3 )); then
+            for old in "${builds[@]:0:${#builds[@]}-3}"; do
               rm -rf "$repo/$old"
             done
           fi

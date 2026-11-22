@@ -40,7 +40,15 @@ case "$selected" in
 esac
 
 bash scripts/apply-xg2010g-package-policy.sh --check 2010.config \
-	|| err "optional third-party packages are installed (=y) in 2010.config"
+	|| err "optional third-party packages are not disabled in 2010.config"
+
+# Kconfig resolves dependencies after the seed config is applied.  Check the
+# resolved build config too, otherwise a dependency could promote an optional
+# package back to =y even though the seed config says =m.
+if [[ -f .config ]]; then
+	bash scripts/apply-xg2010g-package-policy.sh --check .config \
+		|| err "optional third-party packages are not disabled in .config"
+fi
 
 for pkg in \
 	luci-app-onu \

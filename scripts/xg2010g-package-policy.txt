@@ -7,6 +7,11 @@
 # are also written as "CONFIG_PACKAGE_<name>=m" when absent, so a Kconfig
 # default cannot silently re-enable them in the image.
 #
+# Optional-app translations are the exception: they are left unset (=n) rather
+# than compiled, because the official LuCI feed already provides them and
+# building every language wastes CI time.  The app packages themselves are
+# still built as modules for the extras repository.
+#
 # This file is applied by scripts/apply-xg2010g-package-policy.sh and enforced
 # by scripts/check-xg2010g-only.sh.  To ship a package in the image itself,
 # remove its line here, set it to =y in 2010.config, and rerun the policy
@@ -40,6 +45,10 @@ luci-app-ddns*
 luci-app-zerotier
 ddns-go
 ddns-scripts
+ddns-scripts-services
+ddns-scripts-aliyun
+ddns-scripts-cloudflare
+ddns-scripts-dnspod-v3
 zerotier
 # Media / network tools
 luci-app-lucky
@@ -69,3 +78,24 @@ pbr
 watchcat
 kmod-nf-tproxy
 kmod-nft-tproxy
+# Translations of optional apps.  These are left off entirely (not built as
+# modules): the app itself is available from the extras repository, and the
+# official LuCI feed provides the translations when needed.
+luci-i18n-openclash*
+luci-i18n-passwall*
+luci-i18n-ssr-plus*
+luci-i18n-arpbind*
+luci-i18n-autoreboot*
+luci-i18n-ddns*
+luci-i18n-lucky*
+luci-i18n-msd_lite*
+luci-i18n-pbr*
+luci-i18n-pushbot*
+luci-i18n-rtp2httpd*
+luci-i18n-timewol*
+luci-i18n-udpxy*
+luci-i18n-upnp*
+luci-i18n-vlmcsd*
+luci-i18n-watchcat*
+luci-i18n-wol*
+luci-i18n-zerotier*

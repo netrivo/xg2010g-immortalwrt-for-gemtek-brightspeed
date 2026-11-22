@@ -62,6 +62,11 @@ while IFS= read -r device; do
 done <<<"$selected"
 
 profile="xg2010g"
+policy_file="$(dirname "$0")/xg2010g-package-policy.txt"
+[[ -f "$policy_file" ]] || {
+	echo "package policy not found: $policy_file" >&2
+	exit 1
+}
 forbidden_packages='(airoha-an7581-mt7996-board|airoha-en7581-mt7996-npu-firmware|hostapd.*|iw|iw-full|iwinfo|kmod-(mac80211.*|mt76.*|mt7996.*)|ucode-mod-nl80211|wireless-regdb|wpad.*)'
 forbidden_build_config='CONFIG_TARGET_ROOTFS_INITRAMFS=y'
 required_packages=(
@@ -117,6 +122,19 @@ for manifest in ${manifests[@]+"${manifests[@]}"}; do
 		echo "$profile manifest contains forbidden packages: $manifest" >&2
 		failed=1
 	fi
+
+	while IFS= read -r package; do
+		[[ -n "$package" ]] || continue
+		while IFS= read -r pattern; do
+			[[ -z "$pattern" || "$pattern" == \#* ]] && continue
+			case "$package" in
+				$pattern)
+					echo "$profile manifest contains policy-blocked package $package: $manifest" >&2
+					failed=1
+					;;
+			esac
+		done < "$policy_file"
+	done < <(awk '{print $1}' "$manifest")
 
 	for package in "${manifest_required_packages[@]}"; do
 		if ! grep -Eq "^${package}([[:space:]]|$)" "$manifest"; then
