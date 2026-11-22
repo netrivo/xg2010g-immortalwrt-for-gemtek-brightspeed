@@ -25,11 +25,23 @@ jobs:
     timeout-minutes: 350
     permissions:
       contents: write
+    defaults:
+      run:
+        # GitHub Actions checks out into /home/runner/work/<repo>/<repo>,
+        # which pushes host-python install paths past OpenWrt's 124-char
+        # limit (e.g. i2c-tools' py-smbus). Build from a short path instead.
+        working-directory: /home/runner/w
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Create short build directory
+        working-directory: ${{ github.workspace }}
+        run: |
+          git clone --quiet --local "$GITHUB_WORKSPACE" /home/runner/w
+          git -C /home/runner/w checkout --quiet --detach "$GITHUB_SHA"
 
       - name: Generate build version
         id: version
@@ -196,16 +208,16 @@ jobs:
         with:
           name: xg2010g-firmware
           path: |
-            download.log
-            build.log
-            build-verbose.log
-            logs/
-            bin/targets/airoha/an7581/*.itb
-            bin/targets/airoha/an7581/*manifest
-            bin/targets/airoha/an7581/config.buildinfo
-            bin/targets/airoha/an7581/feeds.buildinfo
-            bin/targets/airoha/an7581/version.buildinfo
-            bin/targets/airoha/an7581/sha256sums
+            /home/runner/w/download.log
+            /home/runner/w/build.log
+            /home/runner/w/build-verbose.log
+            /home/runner/w/logs/
+            /home/runner/w/bin/targets/airoha/an7581/*.itb
+            /home/runner/w/bin/targets/airoha/an7581/*manifest
+            /home/runner/w/bin/targets/airoha/an7581/config.buildinfo
+            /home/runner/w/bin/targets/airoha/an7581/feeds.buildinfo
+            /home/runner/w/bin/targets/airoha/an7581/version.buildinfo
+            /home/runner/w/bin/targets/airoha/an7581/sha256sums
           retention-days: 30
         if: always()
 
@@ -262,12 +274,12 @@ jobs:
           draft: false
           prerelease: ${{ github.event.inputs.release_type == 'prerelease' }}
           files: |
-            bin/targets/airoha/an7581/*.itb
-            bin/targets/airoha/an7581/*manifest
-            bin/targets/airoha/an7581/config.buildinfo
-            bin/targets/airoha/an7581/feeds.buildinfo
-            bin/targets/airoha/an7581/version.buildinfo
-            bin/targets/airoha/an7581/sha256sums
-            bin/targets/airoha/an7581/sha256sums-*
+            /home/runner/w/bin/targets/airoha/an7581/*.itb
+            /home/runner/w/bin/targets/airoha/an7581/*manifest
+            /home/runner/w/bin/targets/airoha/an7581/config.buildinfo
+            /home/runner/w/bin/targets/airoha/an7581/feeds.buildinfo
+            /home/runner/w/bin/targets/airoha/an7581/version.buildinfo
+            /home/runner/w/bin/targets/airoha/an7581/sha256sums
+            /home/runner/w/bin/targets/airoha/an7581/sha256sums-*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
