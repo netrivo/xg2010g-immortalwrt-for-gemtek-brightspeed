@@ -34,15 +34,16 @@
 
 默认镜像只保留 XG2010G/PON/系统管理和 Argon 主题；代理、推送、媒体、远程组网等可选包由
 `scripts/xg2010g-package-policy.txt` 管理。这些可选包不会安装进镜像，而是以 `=m` 模块方式
-编译，`.apk` 发布到每次构建对应的 extras 仓库，之后可以从 LuCI 软件包页面或命令行安装。
-镜像安装器只安装 `=y` 包，所以 `=m` 不会增加默认镜像体积。
+编译；`helloworld`、`pushbot` 两个 feed 的 `.apk` 会发布到每次构建对应的 extras 仓库，
+其余包从官方 ImmortalWrt distfeeds 安装。镜像安装器只安装 `=y` 包，所以 `=m` 不会增加
+默认镜像体积。
 
 `2010.config` 和 `feeds.conf.default` 是本地策略文件：同步 brightspeed 时保留本仓库版本，
 上游改动会输出 diff 供人工挑选，不会被自动合入。
 
 - 当前 UI 使用 `luci-theme-argon`（jerrykuku 的 argon feed），`luci-theme-bootstrap` 作为备用主题。
-- 可选插件的翻译包不会编进镜像或 extras；需要中文界面时从官方 LuCI 源安装对应
-  `luci-i18n-*` 包即可。
+- 可选插件的简体中文翻译包（`luci-i18n-*-zh-cn`）随插件以 `=m` 编译，不进入镜像；
+  属于 `helloworld`/`pushbot` 的翻译包随 extras 发布，其余从官方 LuCI 源安装。
 - PON/ONU 工具（`luci-app-onu`、`luci-app-pon-status`、`luci-app-clients`、`luci-app-airoha-npu`）
   属于设备基础，保留。
 - 要让某个可选包进入镜像：从 `scripts/xg2010g-package-policy.txt` 删除对应行，把
@@ -96,8 +97,8 @@ make -j$(nproc) world
 ```
 
 `world` 会编译 `=m` 的可选包并生成 `bin/packages/`，但不会把它们装进镜像。CI 构建还会把
-这些包发布到 `packages` 分支并生成镜像里的 extras 源地址；本地构建如果不需要 extras，
-可以跳过发布，镜像仍可正常使用。
+`helloworld`、`pushbot` 和内核模块发布到 `packages` 分支并生成镜像里的 extras 源地址；
+本地构建如果不需要 extras，可以跳过发布，镜像仍可正常使用。
 
 产物在 `bin/targets/airoha/an7581/`。
 

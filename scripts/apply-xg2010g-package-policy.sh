@@ -50,13 +50,6 @@ def keep_off(name):
     return "_INCLUDE_" in name or name.endswith("_Transparent_Proxy")
 
 
-def translation(name):
-    # Optional-app translations are not needed in the default image and do not
-    # have to be prebuilt: the official LuCI feed already carries them.  Leave
-    # them off instead of compiling every language as a module.
-    return name.startswith("luci-i18n-")
-
-
 lines = Path(config_path).read_text().splitlines()
 out = []
 installed = []
@@ -68,13 +61,10 @@ for line in lines:
         name, state = m.group(1), m.group(2)
         seen.add(name)
         if check:
-            if translation(name):
-                if state in ("y", "m"):
-                    installed.append(name)
-            elif state == "y" and not keep_off(name):
+            if state == "y" and not keep_off(name):
                 installed.append(name)
             out.append(line)
-        elif keep_off(name) or translation(name):
+        elif keep_off(name):
             out.append(f"# CONFIG_PACKAGE_{name} is not set")
         else:
             # Optional packages are compiled as modules so their .apk files
@@ -87,7 +77,7 @@ for line in lines:
     if m and blocked(m.group(1)):
         name = m.group(1)
         seen.add(name)
-        if check or keep_off(name) or translation(name):
+        if check or keep_off(name):
             out.append(line)
         else:
             out.append(f"CONFIG_PACKAGE_{name}=m")
