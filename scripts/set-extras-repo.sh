@@ -6,7 +6,11 @@ cd "$(dirname "$0")/.."
 repo=${1:-${GITHUB_REPOSITORY:-}}
 build_id=${2:-${BUILD_ID:-}}
 branch=${EXTRAS_BRANCH:-packages}
-feeds=${EXTRAS_FEEDS:-"helloworld pushbot app_airoha onu_config pon_drivers argon"}
+# Only feeds that carry optional third-party packages need an extras URL.
+# app_airoha/onu_config/pon_drivers/argon packages are part of the image; the
+# official distfeeds cover luci/packages/routing/telephony.  Keeping this list
+# short also guarantees that every URL below has a non-empty index.
+feeds=${EXTRAS_FEEDS:-"helloworld pushbot"}
 
 if [[ -z "$repo" ]]; then
 	remote=$(git remote get-url origin 2>/dev/null || true)

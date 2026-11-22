@@ -218,9 +218,11 @@ jobs:
           work=$(mktemp -d)
           mkdir -p "$work/$BUILD_ID/kmods"
 
-          # Third-party feeds are published per feed; the device gets one
-          # packages.adb URL per feed from scripts/set-extras-repo.sh.
-          for feed in helloworld pushbot app_airoha onu_config pon_drivers argon; do
+          # Only optional third-party feeds are published.  Device feeds are
+          # installed into the image, and the official distfeeds provide the
+          # rest; publishing them here would duplicate packages and risk an
+          # empty feed directory turning into a 404 on the device.
+          for feed in helloworld pushbot; do
             src="bin/packages/$arch/$feed"
             compgen -G "$src/*.apk" >/dev/null || {
               echo "missing packages for feed $feed" >&2
