@@ -42,6 +42,18 @@ esac
 bash scripts/apply-xg2010g-package-policy.sh --check 2010.config \
 	|| err "optional third-party packages are not disabled in 2010.config"
 
+# 2010.config must already be in the state the policy produces: only the
+# packages in scripts/xg2010g-extras-packages.txt are built as modules, the
+# other optional packages come from the official feeds and stay unset.
+policy_tmp=$(mktemp)
+cp 2010.config "$policy_tmp"
+bash scripts/apply-xg2010g-package-policy.sh "$policy_tmp"
+if ! cmp -s 2010.config "$policy_tmp"; then
+	err "2010.config differs from the package policy; run scripts/apply-xg2010g-package-policy.sh"
+	diff -u 2010.config "$policy_tmp" >&2 || true
+fi
+rm -f "$policy_tmp"
+
 # Kconfig resolves dependencies after the seed config is applied.  Check the
 # resolved build config too, otherwise a dependency could promote an optional
 # package back to =y even though the seed config says =m.

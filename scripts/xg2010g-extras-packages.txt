@@ -1,0 +1,36 @@
+# Optional packages that this repository compiles (=m) and publishes in the
+# per-build extras repository.
+#
+# Only list a package here when the official ImmortalWrt snapshot feeds cannot
+# provide it: it is missing there, this repository carries a change to it, or
+# it is a kernel module (kmods must match this kernel).  Every other package in
+# scripts/xg2010g-package-policy.txt is left unset and installed on the device
+# from the official distfeeds, so the firmware build does not spend time
+# compiling it.
+#
+# Dependencies of the packages below are still selected by Kconfig and built
+# as needed.  A trailing '*' matches a package-name prefix.
+#
+# Applied by scripts/apply-xg2010g-package-policy.sh.
+
+# helloworld: not in the official feeds
+luci-app-ssr-plus
+luci-i18n-ssr-plus-zh-cn
+shadowsocksr-libev*
+# helloworld: carries the AN7581 EIP93 AES-GCM overlay
+xray-core
+# pushbot: not in the official feeds
+luci-app-pushbot
+luci-i18n-pushbot-zh-cn
+# package/lucky: not in the official feeds
+lucky
+luci-app-lucky
+luci-i18n-lucky-zh-cn
+# Kernel modules must match this kernel, so the official feeds cannot provide
+# them.  Keep every kmod that an optional package needs, including the ones
+# installed from the official feeds (passwall, openclash, upnp, ...).
+kmod-nf-tproxy
+kmod-nft-tproxy
+kmod-nft-compat
+kmod-ip6tables
+kmod-nf-ipt6

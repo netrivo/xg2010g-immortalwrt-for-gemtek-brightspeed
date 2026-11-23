@@ -11,6 +11,10 @@ ImmortalWrt 上游合并不逐项展开，仅记录会影响本设备构建或�
 
 ### CI 与发布
 
+- 官方 ImmortalWrt 源已有的可选插件（passwall、openclash、zerotier、ddns、upnp、mosdns、sing-box、
+  shadowsocks-rust 等）不再在本仓库编译，`=m` 包从 101 个减到 25 个；只保留官方源提供不了的
+  （ssr-plus、shadowsocksr-libev、pushbot、lucky、带 EIP93 加速的 xray-core）和可选插件需要的内核模块，
+  清单见 `scripts/xg2010g-extras-packages.txt`。镜像内容和发布的 kmod 不变。
 - Build XG2010G Firmware 缓存源码包（`dl/`）和 ccache 编译缓存（只在 CI 中开启
   `CONFIG_DEVEL`/`CONFIG_CCACHE`，上限 3 GB，构建失败也会保存），并在构建前清理
   runner 上用不到的 SDK 以腾出磁盘空间。

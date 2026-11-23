@@ -4,6 +4,7 @@ set -Eeuo pipefail
 cd "$(dirname "$0")/.."
 
 policy=scripts/xg2010g-package-policy.txt
+extras=scripts/xg2010g-extras-packages.txt
 config=2010.config
 check=0
 
@@ -16,31 +17,56 @@ if (( $# > 0 )); then
 fi
 
 [[ -f "$policy" ]] || { echo "missing $policy" >&2; exit 1; }
+[[ -f "$extras" ]] || { echo "missing $extras" >&2; exit 1; }
 [[ -f "$config" ]] || { echo "missing $config" >&2; exit 1; }
 
-python3 - "$policy" "$config" "$check" <<'PY'
+python3 - "$policy" "$extras" "$config" "$check" <<'PY'
 from pathlib import Path
 import re
 import sys
 
-policy_path, config_path, check = sys.argv[1], sys.argv[2], sys.argv[3] == "1"
-
-rules = []
-for raw in Path(policy_path).read_text().splitlines():
-    line = raw.strip()
-    if not line or line.startswith("#"):
-        continue
-    if line.endswith("*"):
-        rules.append((line[:-1], True))
-    else:
-        rules.append((line, False))
+policy_path, extras_path, config_path = sys.argv[1], sys.argv[2], sys.argv[3]
+check = sys.argv[4] == "1"
 
 
-def blocked(name):
+def load(path):
+    rules = []
+    for raw in Path(path).read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.endswith("*"):
+            rules.append((line[:-1], True))
+        else:
+            rules.append((line, False))
+    return rules
+
+
+def matches(rules, name):
     for pattern, prefix in rules:
         if name.startswith(pattern) if prefix else name == pattern:
             return True
     return False
+
+
+# Packages kept out of the image.  Only the extras subset is compiled (=m);
+# the rest is left unset and installed from the official distfeeds.
+extra_rules = load(extras_path)
+rules = load(policy_path) + extra_rules
+
+
+def blocked(name):
+    return matches(rules, name)
+
+
+def module(name):
+    return matches(extra_rules, name)
+
+
+def state_line(name):
+    if module(name):
+        return f"CONFIG_PACKAGE_{name}=m"
+    return f"# CONFIG_PACKAGE_{name} is not set"
 
 
 def keep_off(name):
@@ -67,10 +93,10 @@ for line in lines:
         elif keep_off(name):
             out.append(f"# CONFIG_PACKAGE_{name} is not set")
         else:
-            # Optional packages are compiled as modules so their .apk files
-            # land in the per-build extras repository, but are never installed
-            # into the default image (the image installer only installs =y).
-            out.append(f"CONFIG_PACKAGE_{name}=m")
+            # Extras are compiled as modules so their .apk files land in the
+            # per-build extras repository, but are never installed into the
+            # default image (the image installer only installs =y).
+            out.append(state_line(name))
         continue
 
     m = re.match(r"^# CONFIG_PACKAGE_(\S+) is not set$", line)
@@ -80,7 +106,7 @@ for line in lines:
         if check or keep_off(name):
             out.append(line)
         else:
-            out.append(f"CONFIG_PACKAGE_{name}=m")
+            out.append(state_line(name))
         continue
 
     out.append(line)
@@ -97,11 +123,12 @@ if check:
         sys.exit(1)
     sys.exit(0)
 
-# Make the module selection explicit even when the symbol is absent, so a
-# Kconfig default cannot silently turn it back into an image package.
+# Make the selection explicit even when the symbol is absent, so a Kconfig
+# default cannot silently turn it back into an image package.
 for pattern, prefix in rules:
     if not prefix and pattern not in seen:
-        out.append(f"CONFIG_PACKAGE_{pattern}=m")
+        seen.add(pattern)
+        out.append(state_line(pattern))
 
 Path(config_path).write_text("\n".join(out) + "\n")
 PY

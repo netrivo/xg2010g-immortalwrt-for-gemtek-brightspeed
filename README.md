@@ -153,10 +153,15 @@ sha256sum immortalwrt-*-gemtek_xg2010g-ubi-squashfs-sysupgrade.itb
 ## 默认包策略
 
 默认镜像只保留 XG2010G/PON/系统管理和 Argon 主题；代理、推送、媒体、远程组网等可选包由
-[`scripts/xg2010g-package-policy.txt`](scripts/xg2010g-package-policy.txt) 管理。这些可选包不会安装进镜像，而是以 `=m` 模块方式
-编译；`helloworld`、`pushbot` 两个 feed 和本仓库自带的 `lucky` 会发布到每次构建对应的 extras 仓库，
-其余包从官方 ImmortalWrt distfeeds 安装。镜像安装器只安装 `=y` 包，所以 `=m` 不会增加
-默认镜像体积。
+[`scripts/xg2010g-package-policy.txt`](scripts/xg2010g-package-policy.txt) 管理，不会安装进镜像。
+
+- 官方 ImmortalWrt 源里已有的插件（大部分）本仓库**不编译**，设备上直接从官方源安装。
+- 只有官方源提供不了的才在本仓库以 `=m` 编译，并发布到每次构建对应的 extras 仓库，清单见
+  [`scripts/xg2010g-extras-packages.txt`](scripts/xg2010g-extras-packages.txt)：
+  - 官方源没有的：`luci-app-ssr-plus`、`shadowsocksr-libev`（helloworld）、`luci-app-pushbot`、`lucky`；
+  - 本仓库有改动的：`xray-core`（helloworld 版，带 AN7581 EIP93 AES-GCM 加速）；
+  - 内核模块：`kmod-*` 必须和本固件的内核一致，官方源的装不上，可选插件需要的 kmod 都在这里编译。
+- 镜像安装器只安装 `=y` 包，所以 `=m` 不会增加默认镜像体积。
 
 ### 默认自带的插件
 
@@ -201,13 +206,14 @@ sha256sum immortalwrt-*-gemtek_xg2010g-ubi-squashfs-sysupgrade.itb
 上游改动会输出 diff 供人工挑选，不会被自动合入。
 
 - 当前 UI 使用 `luci-theme-argon`（jerrykuku 的 argon feed），`luci-theme-bootstrap` 作为备用主题。
-- 可选插件的简体中文翻译包（`luci-i18n-*-zh-cn`）随插件以 `=m` 编译，不进入镜像；
-  属于 `helloworld`/`pushbot` 的翻译包随 extras 发布，其余从官方 LuCI 源安装。
+- 可选插件的简体中文翻译包（`luci-i18n-*-zh-cn`）不进入镜像；ssr-plus、pushbot、lucky 的翻译包随 extras
+  发布，其余从官方 LuCI 源安装。
 - PON/ONU 工具（`luci-app-onu`、`luci-app-pon-status`、`luci-app-clients`、`luci-app-airoha-npu`）
   属于设备基础，保留。
 - 要让某个可选包进入镜像：从 `scripts/xg2010g-package-policy.txt` 删除对应行，把
   `2010.config` 里的包设为 `y`，然后重新运行策略检查和构建。
-- 只安装到设备、不进入镜像的包：保持策略文件中的行不变，构建后从 extras 仓库安装即可。
+- 新增一个可选插件：加到策略文件；只有官方源没有、需要本仓库改动或是内核模块时，才同时加到
+  `scripts/xg2010g-extras-packages.txt`，否则不要在本仓库编译。
 
 ### feed 一览
 
