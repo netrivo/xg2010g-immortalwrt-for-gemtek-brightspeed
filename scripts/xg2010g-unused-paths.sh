@@ -31,4 +31,9 @@ xg2010g_unused_paths=(
 	package/kernel/mt76/patches/9993-wifi-mt76-mt7996-pass-operating-mode-to-rate-control.patch
 	package/kernel/mt76/patches/9994-wifi-mt76-mt7996-set-skb-device-for-npu-rx.patch
 	package/kernel/mt76/patches/9995-wifi-mt76-mt7996-advertise-beacon-protection.patch
+	package/firmware/znxt-zn515-mt7916-eeprom
+	package/firmware/wireless-regdb/patches/510-us-all-30dbm.patch
+	package/firmware/wireless-regdb/patches/520-cn-all-30dbm.patch
+	package/lucky/README.md
+	package/lucky/doc
 )
