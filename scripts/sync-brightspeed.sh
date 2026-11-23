@@ -24,26 +24,54 @@ old_head=$(git rev-parse HEAD)
 echo "merging brightspeed ${base:0:8} -> ${new:0:8}"
 out=$(mktemp)
 trap 'rm -f "$out"' EXIT
+. scripts/xg2010g-unused-paths.sh
+
+# Paths scripts/apply-xg2010g-trim.sh deletes.  Upstream edits to them always
+# conflict (modify/delete) and are irrelevant to XG2010G.
+is_trimmed_path() {
+	local path=$1 unused
+	case "$path" in
+	1710.config|040.config|040-tf.config|config.seed|\
+	.github/workflows/sync-upstream.yml|\
+	target/linux/airoha/an7583/base-files/*|\
+	package/boot/uboot-airoha/*|\
+	package/boot/uboot-tools/uboot-envtools/files/airoha_an7583)
+		return 0
+		;;
+	target/linux/airoha/dts/*)
+		case "${path##*/}" in
+		an7581.dtsi|*xg2010g*) return 1 ;;
+		*) return 0 ;;
+		esac
+		;;
+	esac
+	for unused in "${xg2010g_unused_paths[@]}"; do
+		[[ "$path" == "$unused" || "$path" == "$unused"/* ]] && return 0
+	done
+	return 1
+}
+
+# Files the trim rewrites, or local policy files restored after the merge.
+is_trim_owned_path() {
+	case "$1" in
+	target/linux/airoha/image/an7581.mk|\
+	target/linux/airoha/image/an7583.mk|\
+	target/linux/airoha/image/en7523.mk|\
+	2010.config|\
+	feeds.conf.default)
+		return 0
+		;;
+	esac
+	is_trimmed_path "$1"
+}
+
 if ! git merge-tree --write-tree --name-only --no-messages --merge-base="$base" HEAD "$new" >"$out"; then
 	echo "merge conflicts, checking whether they are trim-only:" >&2
 	safe=1
 	while IFS= read -r path; do
-		case "$path" in
-		target/linux/airoha/image/an7581.mk|\
-		target/linux/airoha/image/an7583.mk|\
-		target/linux/airoha/image/en7523.mk|\
-		target/linux/airoha/dts/*|\
-		target/linux/airoha/an7583/base-files/*|\
-		package/boot/uboot-airoha/*|\
-		package/boot/uboot-tools/uboot-envtools/files/airoha_an7583|\
-		2010.config|\
-		feeds.conf.default)
-			;;
-		*)
-			echo "  manual conflict: $path" >&2
-			safe=0
-			;;
-		esac
+		is_trim_owned_path "$path" && continue
+		echo "  manual conflict: $path" >&2
+		safe=0
 	done < <(tail -n +2 "$out")
 	if (( safe == 0 )); then
 		echo "resolve the conflicts above manually, then rerun" >&2
@@ -52,8 +80,14 @@ if ! git merge-tree --write-tree --name-only --no-messages --merge-base="$base" 
 	echo "all conflicts are inside trimmed device files; retrying with -X ours" >&2
 	if ! git merge-tree --write-tree --name-only --no-messages --merge-base="$base" \
 		-X ours HEAD "$new" >"$out"; then
-		echo "automatic trim resolution failed" >&2
-		exit 1
+		# -X ours settles content conflicts but not modify/delete ones.  Those
+		# are acceptable only for paths the trim deletes right after the merge.
+		while IFS= read -r path; do
+			is_trimmed_path "$path" && continue
+			echo "automatic trim resolution failed: $path" >&2
+			exit 1
+		done < <(tail -n +2 "$out")
+		echo "remaining conflicts are in paths the trim deletes" >&2
 	fi
 fi
 tree=$(head -n 1 "$out")
