@@ -1,0 +1,123 @@
+name: Watch Brightspeed Upstream
+
+# Opens (or refreshes) one tracking issue whenever the brightspeed upstream
+# has commits that are not yet imported into this repository. The issue is
+# closed by the sync PR ("Closes #N"), so every upstream update goes through
+# issue -> assignment -> PR -> close.
+
+on:
+  schedule:
+    - cron: '0 1 * * *'   # 09:00 Asia/Shanghai
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: watch-brightspeed
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_REPO: naoki66/ImmortalWrt-for-Gemtek-brightspeed
+  UPSTREAM_BRANCH: master
+  ASSIGNEE: fuqiang-repository
+  LABEL: upstream-sync
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: .brightspeed-upstream
+          sparse-checkout-cone-mode: false
+
+      - name: Open or update tracking issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base=$(sed -n 's/^commit=//p' .brightspeed-upstream)
+          base_date=$(sed -n 's/^date=//p' .brightspeed-upstream)
+          test -n "$base"
+
+          compare=$(gh api "repos/$UPSTREAM_REPO/compare/$base...$UPSTREAM_BRANCH")
+          status=$(jq -r .status <<<"$compare")
+          ahead=$(jq -r .ahead_by <<<"$compare")
+          head=$(gh api "repos/$UPSTREAM_REPO/commits/$UPSTREAM_BRANCH" -q .sha)
+          echo "base=${base:0:8} head=${head:0:8} status=$status ahead=$ahead"
+
+          if [[ "$ahead" == 0 ]]; then
+            echo "No new upstream commits."
+            exit 0
+          fi
+
+          commits=$(jq -r '.commits[-50:] | reverse | .[] |
+            "- [`\(.sha[0:8])`](\(.html_url)) \(.commit.message | split("\n")[0]) (\(.commit.author.date[0:10]))"' <<<"$compare")
+          more=""
+          if (( ahead > 50 )); then
+            more="（只列出最近 50 个，共 $ahead 个）"
+          fi
+          note=""
+          if [[ "$status" == "diverged" ]]; then
+            note=$'\n> [!WARNING]\n> 上游历史已与基线分叉（可能被 force push），三点合并的 merge base 可能不再成立，需要人工确认。\n'
+          fi
+
+          body_file=$(mktemp)
+          cat > "$body_file" <<EOF
+          <!-- upstream-head: $head -->
+          上游 [$UPSTREAM_REPO](https://github.com/$UPSTREAM_REPO) 的 \`$UPSTREAM_BRANCH\` 有 **$ahead** 个提交尚未导入。
+
+          | | commit |
+          | --- | --- |
+          | 当前基线（\`.brightspeed-upstream\`，$base_date） | [\`${base:0:8}\`](https://github.com/$UPSTREAM_REPO/commit/$base) |
+          | 上游最新 | [\`${head:0:8}\`](https://github.com/$UPSTREAM_REPO/commit/$head) |
+
+          [查看完整对比](https://github.com/$UPSTREAM_REPO/compare/$base...$head)
+          $note
+          ### 新提交$more
+
+          $commits
+
+          ### 处理步骤
+
+          1. 如果 \`.brightspeed-upstream\` 的 \`source\` 指向 fork，先同步 fork：
+             \`gh repo sync netrivo/ImmortalWrt-for-Gemtek-brightspeed\`
+          2. \`git switch main && git pull && bash scripts/sync-brightspeed.sh\`
+          3. 运行 \`bash scripts/check-xg2010g-only.sh\` 和 \`bash scripts/check-pon-link-watchdog.sh\`
+          4. 推送 sync 分支，提 PR 并在描述里写 \`Closes #<本 issue 编号>\`
+          5. 在 Actions 中对 sync 分支手动运行 Build XG2010G Firmware，编译通过后合并 PR
+
+          _由 [watch-brightspeed](https://github.com/$GH_REPO/actions/workflows/watch-brightspeed.yml) 自动维护。_
+          EOF
+
+          gh label create "$LABEL" --color 0E8A16 \
+            --description "Brightspeed upstream has commits to import" --force >/dev/null
+
+          title="同步 brightspeed 上游：${ahead} 个新提交（${head:0:8}）"
+          existing=$(gh issue list --label "$LABEL" --state open --json number,body \
+            -q 'sort_by(.number) | .[0] // empty | "\(.number) \(.body)"' | head -n 1)
+
+          if [[ -z "$existing" ]]; then
+            url=$(gh issue create --title "$title" --body-file "$body_file" \
+              --label "$LABEL" --assignee "$ASSIGNEE")
+            echo "Created $url"
+            exit 0
+          fi
+
+          number=${existing%% *}
+          old_head=$(gh issue view "$number" --json body -q .body |
+            sed -n 's/.*<!-- upstream-head: \([0-9a-f]*\) -->.*/\1/p' | head -n 1)
+          if [[ "$old_head" == "$head" ]]; then
+            echo "Issue #$number already tracks ${head:0:8}."
+            exit 0
+          fi
+
+          gh issue edit "$number" --title "$title" --body-file "$body_file" --add-assignee "$ASSIGNEE"
+          gh issue comment "$number" --body "上游有新提交，最新为 [\`${head:0:8}\`](https://github.com/$UPSTREAM_REPO/commit/$head)，共 $ahead 个待导入。"
+          echo "Updated issue #$number"
