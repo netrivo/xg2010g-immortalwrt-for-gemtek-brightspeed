@@ -2,6 +2,9 @@
 # Restore user-installed extras after a sysupgrade.  The service is enabled in
 # the image; on a normal boot without /etc/backup/installed_packages.txt it does
 # nothing.  It stays enabled so a later upgrade can restore packages again.
+# The worker runs in the background, keeps retrying while the package feeds are
+# unreachable, re-disables services listed in /etc/backup/disabled_services.txt
+# and holds a lock so a restart of this service never starts a second copy.
 
 START=99
 STOP=01

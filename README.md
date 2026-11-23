@@ -144,14 +144,19 @@ sha256sum immortalwrt-*-gemtek_xg2010g-ubi-squashfs-sysupgrade.itb
 ## 升级和插件恢复
 
 XG2010G 的 `sysupgrade` 默认会把当前已安装包列表写入备份里的
-`/etc/backup/installed_packages.txt`。升级重启后，新镜像里的
-`xg2010g-restore-packages` 服务会：
+`/etc/backup/installed_packages.txt`，把升级前被禁用的服务写入
+`/etc/backup/disabled_services.txt`。升级重启后，新镜像里的
+`xg2010g-restore-packages` 服务会在后台：
 
 1. 只处理旧镜像中位于 overlay 的包（用户自己安装的插件）；旧镜像 ROM 里预装的包不会
    被带进最小镜像。
-2. 跳过新镜像里已经存在的包，等待网络后执行 `apk update` 和 `apk add`。
-3. 失败时保留列表，下次启动继续重试；全部成功后删除列表。日志在
-   `/tmp/xg2010g-restore.log`，也可以用 `logread -e xg2010g-restore` 查看。
+2. 跳过新镜像里已经存在的包，执行 `apk update` 和 `apk add`。
+3. 软件源连不上（PON 注册、PPPoE 拨号还没完成，或上游断网）时不放弃，也不用等重启：
+   前 5 分钟每 10 秒重试，之后每 5 分钟重试，直到连通。
+4. 每装完一轮，把升级前被禁用、但被安装脚本重新启用的服务再停止并禁用，保持升级前的启停状态。
+5. 源可用但个别包仍安装失败（例如包已下架）时，每 5 分钟再试，最多 6 轮；仍失败就保留列表，
+   下次启动再试。全部成功后删除两个列表。日志在 `/tmp/xg2010g-restore.log`，也可以用
+   `logread -e xg2010g-restore` 查看。
 
 `/etc/config/` 和常见插件的配置目录通过
 [`package/base-files/files/lib/upgrade/keep.d/xg2010g-configs`](package/base-files/files/lib/upgrade/keep.d/xg2010g-configs)

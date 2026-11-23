@@ -152,14 +152,20 @@ See [`feeds.conf.default`](feeds.conf.default) for the full definition. Local ch
 
 ## Upgrades and package restore
 
-On the XG2010G, `sysupgrade` writes the list of installed packages to `/etc/backup/installed_packages.txt` in the
-backup. After the upgrade reboots, the `xg2010g-restore-packages` service in the new image:
+On the XG2010G, `sysupgrade` writes the list of installed packages to `/etc/backup/installed_packages.txt` and the
+services that were disabled to `/etc/backup/disabled_services.txt` in the backup. After the upgrade reboots, the
+`xg2010g-restore-packages` service in the new image runs in the background and:
 
 1. Only handles packages that lived in the old image's overlay (packages the user installed); packages preinstalled
    in the old ROM are not carried into the minimal image.
-2. Skips packages already present in the new image, waits for the network, then runs `apk update` and `apk add`.
-3. Keeps the list and retries on the next boot if anything fails; deletes it once everything succeeds. The log is
-   `/tmp/xg2010g-restore.log`, also available via `logread -e xg2010g-restore`.
+2. Skips packages already present in the new image, then runs `apk update` and `apk add`.
+3. Never gives up while the package feeds are unreachable (PON registration or PPPoE still in progress, upstream
+   down) and does not wait for a reboot: it retries every 10 s for the first 5 minutes, then every 5 minutes.
+4. After each install round, stops and disables again any service that was disabled before the upgrade but was
+   re-enabled by a package's install script, so services keep their pre-upgrade state.
+5. If the feeds work but some packages still fail (for example a package was removed), retries every 5 minutes for
+   up to 6 rounds, then keeps the list until the next boot. Both lists are deleted once everything succeeds. The log
+   is `/tmp/xg2010g-restore.log`, also available via `logread -e xg2010g-restore`.
 
 `/etc/config/` and the config directories of common apps survive upgrades through
 [`package/base-files/files/lib/upgrade/keep.d/xg2010g-configs`](package/base-files/files/lib/upgrade/keep.d/xg2010g-configs).

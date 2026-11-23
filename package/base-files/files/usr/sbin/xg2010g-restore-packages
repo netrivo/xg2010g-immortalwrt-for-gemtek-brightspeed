@@ -1,74 +1,132 @@
 #!/bin/sh
 # Reinstall packages that the user installed into the overlay before a
-# sysupgrade.  sbin/sysupgrade now always writes /etc/backup/installed_packages.txt;
-# the configuration backup restores that file into the new image.
+# sysupgrade.  sbin/sysupgrade always writes /etc/backup/installed_packages.txt
+# and /etc/backup/disabled_services.txt; the configuration backup restores both
+# files into the new image.
 #
 # Packages preinstalled by the old image are marked "rom" and are deliberately
 # skipped: upgrading to the minimal image should not bring back optional
 # packages that were shipped by the previous build.  Only overlay packages the
 # user added are restored.  Packages already present in the new image have a
 # /lib/apk/packages/<name>.list file and are skipped as well.
+#
+# Retry policy:
+# - While the package feeds are unreachable (PON/PPPoE still coming up, no
+#   upstream), keep retrying without waiting for a reboot: every 10 s for the
+#   first 5 minutes, then every 5 minutes.
+# - If the feeds are reachable but some packages still fail to install (for
+#   example a package that no longer exists), retry a few rounds, then keep the
+#   list and stop until the next boot.
+#
+# Disabled services: 10_disable_services runs before the packages are back, so
+# it cannot disable their init scripts, and apk post-install scripts usually
+# enable and start them.  After each install round, every service listed in
+# disabled_services.txt that is now present and enabled is stopped and disabled
+# again.
 
 LIST=/etc/backup/installed_packages.txt
+DISABLED=/etc/backup/disabled_services.txt
 LOG=/tmp/xg2010g-restore.log
+LOCK=/var/lock/xg2010g-restore.lock
 TAB="$(printf '\t')"
+
+FAST_DELAY=10
+FAST_TRIES=30
+SLOW_DELAY=300
+MAX_INSTALL_ROUNDS=6
 
 log() {
 	echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >>"$LOG"
 	logger -t xg2010g-restore "$*"
 }
 
+missing_packages() {
+	[ -s "$LIST" ] || return 0
+	while IFS="$TAB" read -r pkg origin; do
+		[ -n "$pkg" ] || continue
+		case "$origin" in
+		overlay|unknown) ;;
+		*) continue ;;
+		esac
+		[ -f "/lib/apk/packages/$pkg.list" ] && continue
+		printf ' %s' "$pkg"
+	done <"$LIST"
+}
+
+reapply_disabled_services() {
+	[ -s "$DISABLED" ] || return 0
+	while read -r svc; do
+		case "$svc" in
+		''|*/*) continue ;;
+		esac
+		[ -x "/etc/init.d/$svc" ] || continue
+		"/etc/init.d/$svc" enabled >/dev/null 2>&1 || continue
+		"/etc/init.d/$svc" stop >/dev/null 2>&1
+		"/etc/init.d/$svc" disable >/dev/null 2>&1
+		log "service $svc was disabled before the upgrade; disabled it again"
+	done <"$DISABLED"
+}
+
+finish() {
+	reapply_disabled_services
+	rm -f "$LIST" "$DISABLED"
+	log "package restore complete"
+	exit 0
+}
+
 [ -s "$LIST" ] || exit 0
+
+mkdir -p "${LOCK%/*}"
+if ! mkdir "$LOCK" 2>/dev/null; then
+	echo "xg2010g-restore-packages is already running" >&2
+	exit 0
+fi
+trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+trap 'exit 1' INT TERM
 
 log "checking user-installed packages from $LIST"
 
-missing=""
-while IFS="$TAB" read -r pkg origin; do
-	[ -n "$pkg" ] || continue
-	case "$origin" in
-	overlay|unknown) ;;
-	*) continue ;;
-	esac
-	[ -f "/lib/apk/packages/$pkg.list" ] && continue
-	missing="$missing $pkg"
-done <"$LIST"
-
-if [ -z "$missing" ]; then
-	log "no user-installed packages to restore"
-	rm -f "$LIST"
-	exit 0
-fi
-
-log "packages to restore:${missing}"
-
-attempt=0
+update_tries=0
+install_rounds=0
 while :; do
-	if apk update >>"$LOG" 2>&1; then
-		break
+	missing=$(missing_packages)
+	if [ -z "$missing" ]; then
+		[ "$install_rounds" -eq 0 ] && log "no user-installed packages to restore"
+		finish
 	fi
-	attempt=$((attempt + 1))
-	if [ "$attempt" -ge 30 ]; then
-		log "apk update failed after $attempt attempts; keeping the list for the next boot"
+
+	if ! apk update >>"$LOG" 2>&1; then
+		update_tries=$((update_tries + 1))
+		if [ "$update_tries" -lt "$FAST_TRIES" ]; then
+			delay=$FAST_DELAY
+		else
+			delay=$SLOW_DELAY
+		fi
+		[ "$update_tries" -eq "$FAST_TRIES" ] &&
+			log "apk update still failing after $update_tries attempts; retrying every ${SLOW_DELAY}s"
+		sleep "$delay"
+		continue
+	fi
+	update_tries=0
+
+	install_rounds=$((install_rounds + 1))
+	log "packages to restore (round $install_rounds):${missing}"
+	failed=0
+	for pkg in $missing; do
+		if apk add --no-cache "$pkg" >>"$LOG" 2>&1; then
+			log "restored $pkg"
+		else
+			log "failed to restore $pkg"
+			failed=1
+		fi
+	done
+	reapply_disabled_services
+
+	[ "$failed" -eq 0 ] && finish
+
+	if [ "$install_rounds" -ge "$MAX_INSTALL_ROUNDS" ]; then
+		log "some packages still fail after $install_rounds rounds; keeping the list for the next boot"
 		exit 1
 	fi
-	sleep 10
+	sleep "$SLOW_DELAY"
 done
-
-failed=0
-for pkg in $missing; do
-	if apk add --no-cache "$pkg" >>"$LOG" 2>&1; then
-		log "restored $pkg"
-	else
-		log "failed to restore $pkg"
-		failed=1
-	fi
-done
-
-if [ "$failed" -eq 0 ]; then
-	log "package restore complete"
-	rm -f "$LIST"
-else
-	log "some packages failed; keeping the list for the next boot"
-fi
-
-exit "$failed"

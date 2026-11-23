@@ -8,6 +8,10 @@
 CONF_TAR=/tmp/sysupgrade.tgz
 ETCBACKUP_DIR=/etc/backup
 INSTALLED_PACKAGES=${ETCBACKUP_DIR}/installed_packages.txt
+# Services disabled before the upgrade.  10_disable_services cannot disable a
+# service whose package is reinstalled later by xg2010g-restore-packages, so
+# the restore service reads this list after reinstalling packages.
+DISABLED_SERVICES=${ETCBACKUP_DIR}/disabled_services.txt
 COMMAND=/lib/upgrade/do_stage2
 
 # File-local globals
@@ -238,6 +242,7 @@ build_list_of_backup_overlay_files() {
 		-e '\,^/etc/apk/world$,d' \
 		-e '\,^/etc/apk/repositories\.d/distfeeds\.list$,d' \
 		-e "\,^$INSTALLED_PACKAGES$,d" \
+		-e "\,^$DISABLED_SERVICES$,d" \
 		-e '\,^/usr/lib/opkg/.*,d' \
 		-e '\,^/lib/apk/.*,d' \
 		-e '\,^/run$,d' \
@@ -292,13 +297,18 @@ create_backup_archive() {
 		local ret=0
 
 		if [ $ret -eq 0 ]; then
+			disabled_names=""
 			for service in /etc/init.d/*; do
 				if ! $service enabled >/dev/null 2>&1; then
 				disabled="$disabled$service disable\n"
+				disabled_names="$disabled_names${service##*/}\n"
 				fi
 			done
 			disabled="$disabled\nexit 0"
 			tar_print_member "/etc/uci-defaults/10_disable_services" "$(echo -e $disabled)" "$(date -r /etc/rc.d "+%s")" || ret=1
+			if [ $ret -eq 0 ] && [ "$SAVE_INSTALLED_PKGS" -eq 1 ]; then
+				tar_print_member "$DISABLED_SERVICES" "$(echo -e "$disabled_names")" "$(date -r /etc/rc.d "+%s")" || ret=1
+			fi
 		fi
 
 		# Part of archive with installed packages info
@@ -348,6 +358,7 @@ create_backup_archive() {
 if [ $CONF_BACKUP_LIST -eq 1 ]; then
 	run_hooks "$CONFFILES" $sysupgrade_init_conffiles
 	[ "$SAVE_INSTALLED_PKGS" -eq 1 ] && echo ${INSTALLED_PACKAGES} >> "$CONFFILES"
+	[ "$SAVE_INSTALLED_PKGS" -eq 1 ] && echo ${DISABLED_SERVICES} >> "$CONFFILES"
 	cat "$CONFFILES"
 	rm -f "$CONFFILES"
 	exit 0
