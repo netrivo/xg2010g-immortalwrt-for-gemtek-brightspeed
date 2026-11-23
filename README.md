@@ -7,8 +7,8 @@
 [![License](https://img.shields.io/badge/license-GPL--2.0-green)](COPYING)
 
 基于 [ImmortalWrt](https://github.com/immortalwrt/immortalwrt) 的 Gemtek XG2010G（XG(S)-PON 网关）固件仓库。
-代码基线来自 `netrivo/ImmortalWrt-for-Gemtek-brightspeed` 的 2026-11-13 快照
-（commit 记录在 [`.brightspeed-upstream`](.brightspeed-upstream)），本仓库**只维护 XG2010G**，
+代码来自 [naoki66/ImmortalWrt-for-Gemtek-brightspeed](https://github.com/naoki66/ImmortalWrt-for-Gemtek-brightspeed)，
+并持续同步它的更新（当前同步到的 commit 记录在 [`.brightspeed-upstream`](.brightspeed-upstream)）。本仓库**只维护 XG2010G**，
 XR1710G、Nokia XG-040G 等其他机型的设备定义、DTS 和配置均已精简。
 
 - 内核：Linux 6.18（当前 `6.18.60`，见 [`target/linux/generic/kernel-6.18`](target/linux/generic/kernel-6.18)）
