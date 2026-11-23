@@ -34,3 +34,7 @@ kmod-nft-tproxy
 kmod-nft-compat
 kmod-ip6tables
 kmod-nf-ipt6
+# tc modules that used to be in the image as bridger dependencies
+kmod-sched-bpf
+kmod-sched-flower
+kmod-sched-act-vlan

@@ -11,6 +11,11 @@ ImmortalWrt 上游合并不逐项展开，仅记录会影响本设备构建或�
 
 ### CI 与发布
 
+- 从镜像中去掉从多机型配置继承、XG2010G 上没有任何包使用的 `bridger`（给 WiFi 网桥用的 eBPF
+  软件加速，XG2010G 没有 WiFi，桥接由 PPE 硬件加速）、`libcronet`（Chromium 网络库，只有 sing-box
+  的 naive 协议使用）、`ruby` 全套、`nping`、`geoview`。不再需要编译 LLVM BPF 工具链和 libcronet，
+  按上次构建的计时约省 90 分钟；镜像也随之变小。`kmod-sched-bpf/flower/act-vlan` 改为随 extras 发布。
+- 适配 luci-theme-argon 上游新增的 `main_background`/`main_glass` 选项，重新生成默认配置补丁。
 - 官方 ImmortalWrt 源已有的可选插件（passwall、openclash、zerotier、ddns、upnp、mosdns、sing-box、
   shadowsocks-rust 等）不再在本仓库编译，`=m` 包从 101 个减到 25 个；只保留官方源提供不了的
   （ssr-plus、shadowsocksr-libev、pushbot、lucky、带 EIP93 加速的 xray-core）和可选插件需要的内核模块，
