@@ -21,7 +21,7 @@ XR1710G、Nokia XG-040G 等其他机型的设备定义、DTS 和配置均已精�
 
 ## 目录
 
-[快速开始](#快速开始) · [硬件概览](#硬件概览) · [出厂默认设置](#出厂默认设置) ·
+[快速开始](#快速开始) · [版本说明](#版本说明) · [硬件概览](#硬件概览) · [出厂默认设置](#出厂默认设置) ·
 [启动与分区布局](#启动与分区布局) · [默认包策略](#默认包策略) · [升级和插件恢复](#升级和插件恢复) ·
 [构建](#构建) · [同步 brightspeed 更新](#同步-brightspeed-更新) · [检查脚本](#检查脚本) ·
 [仓库结构](#仓库结构) · [技术文档](#技术文档) · [致谢](#致谢) · [许可证](#许可证)
@@ -47,6 +47,46 @@ sha256sum immortalwrt-*-gemtek_xg2010g-ubi-squashfs-sysupgrade.itb
 
 **3. 首次登录后立刻修改密码。** 默认 `root` 无密码，管理地址 `http://192.168.1.1`。
 建议同时检查防火墙和 SSH 设置，然后在 PON 状态、NPU 页面确认光链路和硬件加速状态。
+
+## 版本说明
+
+每个 [Release](https://github.com/netrivo/xg2010g-immortalwrt-for-gemtek-brightspeed/releases) 对应一个同名 tag，
+版本号格式为 `v<主版本>.<次版本>.<修订号>`，可以再带一个后缀。
+
+### 版本号的含义
+
+| 部分 | 什么时候增加 | 例子 |
+| --- | --- | --- |
+| 主版本 | 不兼容的变化：分区布局或启动方式改变、不能保留配置直接升级、需要手动操作才能升级 | `v1.4.2` → `v2.0.0` |
+| 次版本 | 新功能，同步 brightspeed / ImmortalWrt 上游（含内核小版本），默认或可选插件的增减 | `v1.4.2` → `v1.5.0` |
+| 修订号 | 只修复问题，不增加功能 | `v1.4.2` → `v1.4.3` |
+
+### 后缀：正式版和预发布版
+
+| 版本 | 类型 | Releases 页面显示 | 适合谁 |
+| --- | --- | --- | --- |
+| `v1.0.0` | 正式版 | **Latest** | 日常使用 |
+| `v1.0.0-rc.1`、`v1.0.0-rc.2` | 发布候选版（Release Candidate）：功能已完成，正式发布前先试用 | Pre-release | 愿意帮忙测试的用户 |
+| `v1.0.0-beta.1` | 测试版：功能可能还不完整 | Pre-release | 开发和测试 |
+
+一个版本通常按 `-beta.N` → `-rc.N` → 正式版的顺序发布，后缀里的数字表示第几个测试版或候选版。
+候选版确认没问题后，会在同一个提交上发布正式版。
+
+> [!NOTE]
+> Actions 手动构建出来的固件，版本号是 `<YYYYMMDD>-<commit>`（例如 `20261123-9f73da37`），只用于开发测试，
+> 不是发布版本，也不会出现在 Releases 页面。
+
+### 查看设备上的版本
+
+- LuCI 状态页和页脚会显示固件版本。
+- SSH 里执行 `cat /etc/openwrt_release`：`DISTRIB_RELEASE` 是版本号（如 `v1.0.0`）。
+- `cat /etc/openwrt_version` 是完整的 build ID：`<YYYYMMDD>-<本仓库 commit>-<brightspeed commit>`，
+  用来精确定位这份固件是从哪个代码构建的，报告问题时请附上。
+
+### 每个版本改了什么
+
+- Releases 页面每个版本的正文：发布说明、固件 SHA256，以及 GitHub 自动生成的“自上个版本以来的变更”。
+- [CHANGELOG.md](CHANGELOG.md)：按日期记录的重要功能、修复和维护变更。
 
 ## 硬件概览
 
@@ -250,7 +290,8 @@ git tag -a v1.0.0 -m "本版本的更新说明"   # 附注 tag 的说明就是 R
 git push origin v1.0.0
 ```
 
-tag 必须是 `v<主>.<次>.<修订>` 或再加 `-<后缀>`，并且指向 `main` 上的提交，否则构建开始几秒内就会失败。
+tag 必须是 `v<主>.<次>.<修订>` 或再加 `-<后缀>`（含义见[版本说明](#版本说明)），并且指向 `main` 上的提交，
+否则构建开始几秒内就会失败。
 Release 正文由 tag 说明、固件 SHA256 和 GitHub 自动生成的“自上个 tag 以来的变更”组成。
 
 一次构建会：
@@ -317,8 +358,8 @@ bash scripts/summarize-build-errors.sh build.log   # 失败时输出错误摘要
 
 GitHub Release 只发布上表第一行的 `.itb`，其余文件只在 Actions 构件里。
 
-文件名只包含版本；完整的 build ID（含 brightspeed commit）写入 `CONFIG_VERSION_CODE`，
-可在 LuCI 状态页和 `/etc/openwrt_release` 中查看。
+文件名只包含版本；版本号写入设备的 `/etc/openwrt_release`（`DISTRIB_RELEASE`），完整的 build ID
+（含 brightspeed commit）写入 `CONFIG_VERSION_CODE`，在设备的 `/etc/openwrt_version` 中查看。
 
 ## 同步 brightspeed 更新
 
