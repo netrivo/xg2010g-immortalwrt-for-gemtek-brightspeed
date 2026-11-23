@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "architecture": "aarch64_cortex-a53",
+  "packages": {
+    "luci-app-pushbot": "6.01-r15",
+    "luci-i18n-pushbot-zh-cn": "6.01-r15"
+  }
+}

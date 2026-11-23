@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "architecture": "aarch64_cortex-a53",
+  "packages": {
+    "dns2tcp": "1.1.2-r3",
+    "ipt2socks": "1.1.4-r1",
+    "lua-neturl": "1.2.1-r1",
+    "luci-app-ssr-plus": "198-r5",
+    "luci-i18n-ssr-plus-zh-cn": "26.326.47249~a8ae1e4",
+    "microsocks": "1.0.5-r1",
+    "shadowsocksr-libev-ssr-check": "2.5.6-r13",
+    "shadowsocksr-libev-ssr-local": "2.5.6-r13",
+    "shadowsocksr-libev-ssr-nat": "2.5.6-r13",
+    "shadowsocksr-libev-ssr-redir": "2.5.6-r13",
+    "shadowsocksr-libev-ssr-server": "2.5.6-r13",
+    "xray-core": "26.11.9-r2"
+  }
+}
