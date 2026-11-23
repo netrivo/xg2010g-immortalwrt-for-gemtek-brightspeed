@@ -20,7 +20,7 @@ ImmortalWrt 上游合并不逐项展开，仅记录会影响本设备构建或�
   `luci-app-lucky`、`luci-i18n-lucky-zh-cn` 以 `=m` 编译，但官方源和 extras 都没有，
   设备上无法安装，升级后也无法恢复。
 - Release 构建的 extras 永久保留；只清理最近 3 次之前的未发布构建。
-- 发布改为由 tag 驱动：推送 `v1.2.3` 构建并发布同名 Release（`v1.2.3-rc.1` 为预发布），
+- 发布改为由 tag 驱动：推送 `v0.1.0` 这类 tag 构建并发布同名 Release（`v0.1.0-rc.1` 为预发布），版本从 `v0.1.0` 开始，
   固件版本号和文件名使用 tag 名；附注 tag 的说明作为 Release 正文，并附 GitHub 自动生成的变更列表。
   手动运行只做测试构建，不再发布 Release，也不再由构建自动创建 `<日期>-<commit>` tag。
   格式不对或不在 `main` 上的 tag 会在构建开始时被拒绝。

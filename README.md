@@ -55,19 +55,26 @@ sha256sum immortalwrt-*-gemtek_xg2010g-ubi-squashfs-sysupgrade.itb
 
 ### 版本号的含义
 
+版本从 `v0.1.0` 开始。`0.x` 表示还在早期阶段：固件已可日常使用，但还没有经过足够多的真机长期验证，
+升级方式和默认配置仍可能调整。等功能和升级流程稳定后再发布 `v1.0.0`。
+
 | 部分 | 什么时候增加 | 例子 |
 | --- | --- | --- |
 | 主版本 | 不兼容的变化：分区布局或启动方式改变、不能保留配置直接升级、需要手动操作才能升级 | `v1.4.2` → `v2.0.0` |
-| 次版本 | 新功能，同步 brightspeed / ImmortalWrt 上游（含内核小版本），默认或可选插件的增减 | `v1.4.2` → `v1.5.0` |
-| 修订号 | 只修复问题，不增加功能 | `v1.4.2` → `v1.4.3` |
+| 次版本 | 新功能，同步 brightspeed / ImmortalWrt 上游（含内核小版本），默认或可选插件的增减 | `v0.1.0` → `v0.2.0` |
+| 修订号 | 只修复问题，不增加功能 | `v0.2.0` → `v0.2.1` |
+
+> [!IMPORTANT]
+> 在 `0.x` 阶段，不兼容的变化也只增加次版本（例如 `v0.3.0` → `v0.4.0`），并会在 Release 正文的
+> “升级注意”里写明。跨次版本升级前请先看一下发布说明。
 
 ### 后缀：正式版和预发布版
 
 | 版本 | 类型 | Releases 页面显示 | 适合谁 |
 | --- | --- | --- | --- |
-| `v1.0.0` | 正式版 | **Latest** | 日常使用 |
-| `v1.0.0-rc.1`、`v1.0.0-rc.2` | 发布候选版（Release Candidate）：功能已完成，正式发布前先试用 | Pre-release | 愿意帮忙测试的用户 |
-| `v1.0.0-beta.1` | 测试版：功能可能还不完整 | Pre-release | 开发和测试 |
+| `v0.1.0` | 正式版 | **Latest** | 日常使用 |
+| `v0.1.0-rc.1`、`v0.1.0-rc.2` | 发布候选版（Release Candidate）：功能已完成，正式发布前先试用 | Pre-release | 愿意帮忙测试的用户 |
+| `v0.1.0-beta.1` | 测试版：功能可能还不完整 | Pre-release | 开发和测试 |
 
 一个版本通常按 `-beta.N` → `-rc.N` → 正式版的顺序发布，后缀里的数字表示第几个测试版或候选版。
 候选版确认没问题后，会在同一个提交上发布正式版。
@@ -79,7 +86,7 @@ sha256sum immortalwrt-*-gemtek_xg2010g-ubi-squashfs-sysupgrade.itb
 ### 查看设备上的版本
 
 - LuCI 状态页和页脚会显示固件版本。
-- SSH 里执行 `cat /etc/openwrt_release`：`DISTRIB_RELEASE` 是版本号（如 `v1.0.0`）。
+- SSH 里执行 `cat /etc/openwrt_release`：`DISTRIB_RELEASE` 是版本号（如 `v0.1.0`）。
 - `cat /etc/openwrt_version` 是完整的 build ID：`<YYYYMMDD>-<本仓库 commit>-<brightspeed commit>`，
   用来精确定位这份固件是从哪个代码构建的，报告问题时请附上。
 
@@ -272,7 +279,7 @@ https://raw.githubusercontent.com/<owner>/<repo>/packages/<build-id>/<feed>/pack
 
 | 触发方式 | 结果 |
 | --- | --- |
-| 推送 `v*` tag | 构建并发布**同名** GitHub Release。`v1.2.3` 为正式版，`v1.2.3-rc.1` 这类带后缀的为预发布版 |
+| 推送 `v*` tag | 构建并发布**同名** GitHub Release。`v0.2.0` 为正式版，`v0.2.0-rc.1` 这类带后缀的为预发布版 |
 | 手动运行（Actions → Build XG2010G Firmware → Run workflow） | 测试构建，只上传 Actions 构件，不发布 Release |
 
 推送普通提交不会编译。没有缓存时完整构建约 3.5 小时；
@@ -286,8 +293,8 @@ distfeeds、PON 链路看门狗和升级插件恢复的测试。
 
 ```bash
 git switch main && git pull
-git tag -a v1.0.0 -m "本版本的更新说明"   # 附注 tag 的说明就是 Release 正文
-git push origin v1.0.0
+git tag -a v0.1.0 -m "本版本的更新说明"   # 附注 tag 的说明就是 Release 正文
+git push origin v0.1.0
 ```
 
 tag 必须是 `v<主>.<次>.<修订>` 或再加 `-<后缀>`（含义见[版本说明](#版本说明)），并且指向 `main` 上的提交，
@@ -351,7 +358,7 @@ bash scripts/summarize-build-errors.sh build.log   # 失败时输出错误摘要
 
 | 文件 | 说明 |
 | --- | --- |
-| `immortalwrt-naoki66-<版本>-airoha-an7581-gemtek_xg2010g-ubi-squashfs-sysupgrade.itb` | sysupgrade 固件；`<版本>` 在 tag 构建中是 tag 名（如 `v1.0.0`），手动构建中是 `<YYYYMMDD>-<commit>` |
+| `immortalwrt-naoki66-<版本>-airoha-an7581-gemtek_xg2010g-ubi-squashfs-sysupgrade.itb` | sysupgrade 固件；`<版本>` 在 tag 构建中是 tag 名（如 `v0.1.0`），手动构建中是 `<YYYYMMDD>-<commit>` |
 | `*.manifest` | 镜像内的包清单 |
 | `config.buildinfo` / `feeds.buildinfo` / `version.buildinfo` | 构建配置、feed 版本和版本信息 |
 | `sha256sums` | 校验和 |
