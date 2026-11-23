@@ -228,18 +228,30 @@ https://raw.githubusercontent.com/<owner>/<repo>/packages/<build-id>/<feed>/pack
 
 ### GitHub Actions（推荐）
 
-工作流 [Build XG2010G Firmware](.github/workflows/build-firmware.yml) 只能手动触发
-（Actions → Build XG2010G Firmware → Run workflow），推送代码不会自动编译。没有缓存时完整构建约 3.5 小时；
+工作流 [Build XG2010G Firmware](.github/workflows/build-firmware.yml) 有两种触发方式：
+
+| 触发方式 | 结果 |
+| --- | --- |
+| 推送 `v*` tag | 构建并发布**同名** GitHub Release。`v1.2.3` 为正式版，`v1.2.3-rc.1` 这类带后缀的为预发布版 |
+| 手动运行（Actions → Build XG2010G Firmware → Run workflow） | 测试构建，只上传 Actions 构件，不发布 Release |
+
+推送普通提交不会编译。没有缓存时完整构建约 3.5 小时；
 CI 会缓存源码包（`dl/`）和 ccache 编译缓存（上限 3 GB，构建失败时也会保存），之后的构建会复用。
 ccache 只在 CI 中开启，不改动 `2010.config`。
 
 每次推送和 PR 会自动运行 [Check](.github/workflows/check.yml)（约 1 分钟）：脚本语法、XG2010G-only 裁剪、
 distfeeds、PON 链路看门狗和升级插件恢复的测试。
 
-| 输入 | 说明 |
-| --- | --- |
-| `release_type` | `none`：只上传 Actions 构件；`release` / `prerelease`：同时创建 GitHub Release |
-| `release_notes` | Release 说明，可留空 |
+发布一个版本：
+
+```bash
+git switch main && git pull
+git tag -a v1.0.0 -m "本版本的更新说明"   # 附注 tag 的说明就是 Release 正文
+git push origin v1.0.0
+```
+
+tag 必须是 `v<主>.<次>.<修订>` 或再加 `-<后缀>`，并且指向 `main` 上的提交，否则构建开始几秒内就会失败。
+Release 正文由 tag 说明、固件 SHA256 和 GitHub 自动生成的“自上个 tag 以来的变更”组成。
 
 一次构建会：
 
@@ -248,9 +260,9 @@ distfeeds、PON 链路看门狗和升级插件恢复的测试。
 3. 生成 extras 源地址，应用包策略，写入版本信息，执行配置检查（distfeeds、profile 隔离、XG2010G-only）。
 4. 下载源码并编译 `world`；失败时自动用 `V=s` 重编第一个失败的包并输出错误摘要。
 5. 检查镜像和 manifest，发布 extras 到 `packages` 分支。
-6. 上传构件（固件、manifest、buildinfo、日志，保留 30 天）；如果选择了 Release，则创建 tag
-   `<YYYYMMDD>-<commit>`，**只上传一个 `.itb` 固件**，并把它的 SHA256 写进 Release 说明。
-   镜像数量不是恰好一个时发布会失败。
+6. 上传构件（固件、manifest、buildinfo、日志，保留 30 天）。tag 构建还会发布同名 Release，
+   **只上传一个 `.itb` 固件**，并把它的 SHA256 写进 Release 说明；镜像数量不是恰好一个时发布会失败。
+   tag 构建的 extras 会永久保留。
 
 ### 本地构建
 
@@ -298,14 +310,14 @@ bash scripts/summarize-build-errors.sh build.log   # 失败时输出错误摘要
 
 | 文件 | 说明 |
 | --- | --- |
-| `immortalwrt-naoki66-<YYYYMMDD>-<commit>-airoha-an7581-gemtek_xg2010g-ubi-squashfs-sysupgrade.itb` | sysupgrade 固件 |
+| `immortalwrt-naoki66-<版本>-airoha-an7581-gemtek_xg2010g-ubi-squashfs-sysupgrade.itb` | sysupgrade 固件；`<版本>` 在 tag 构建中是 tag 名（如 `v1.0.0`），手动构建中是 `<YYYYMMDD>-<commit>` |
 | `*.manifest` | 镜像内的包清单 |
 | `config.buildinfo` / `feeds.buildinfo` / `version.buildinfo` | 构建配置、feed 版本和版本信息 |
 | `sha256sums` | 校验和 |
 
 GitHub Release 只发布上表第一行的 `.itb`，其余文件只在 Actions 构件里。
 
-文件名只包含 `日期-本仓库 commit`；完整的 build ID（含 brightspeed commit）写入 `CONFIG_VERSION_CODE`，
+文件名只包含版本；完整的 build ID（含 brightspeed commit）写入 `CONFIG_VERSION_CODE`，
 可在 LuCI 状态页和 `/etc/openwrt_release` 中查看。
 
 ## 同步 brightspeed 更新
