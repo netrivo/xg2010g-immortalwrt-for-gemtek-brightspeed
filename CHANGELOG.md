@@ -7,6 +7,62 @@ ImmortalWrt 上游合并不逐项展开，仅记录会影响本设备构建或�
 > Nokia XG-040G 等机型的内容只作历史记录。本仓库从 2026-11-20 起只维护
 > XG2010G，这些机型的设备定义、配置和专用包均已删除。
 
+## 2026-11-23
+
+### CI 与发布
+
+- Build XG2010G Firmware 缓存源码包（`dl/`）和 ccache 编译缓存（只在 CI 中开启
+  `CONFIG_DEVEL`/`CONFIG_CCACHE`，上限 3 GB，构建失败也会保存），并在构建前清理
+  runner 上用不到的 SDK 以腾出磁盘空间。
+- 新增 Check 工作流：每次推送和 PR 检查脚本语法、XG2010G-only 裁剪、distfeeds、
+  PON 链路看门狗和升级后插件恢复（新增 `scripts/check-restore-packages.sh`）。
+- extras 新增 `local/` 源，发布本仓库 `package/` 下的可选包。此前 `lucky`、
+  `luci-app-lucky`、`luci-i18n-lucky-zh-cn` 以 `=m` 编译，但官方源和 extras 都没有，
+  设备上无法安装，升级后也无法恢复。
+- Release 构建的 extras 永久保留；只清理最近 3 次之前的未发布构建。
+
+### 同步
+
+- `.brightspeed-upstream` 的来源改为 `naoki66/ImmortalWrt-for-Gemtek-brightspeed`，
+  与 watch-brightspeed 监控的仓库一致，不再经过 netrivo 的 fork。
+
+### 文档
+
+- README 列出默认自带插件和可选插件（含安装来源），说明目前不支持自动在线升级。
+- 更正 `docs/airoha-ppe-pppoe-bridge-offload.md`：软件和硬件流量卸载由 firewall4 默认
+  配置开启。
+
+## 2026-11-22
+
+### 升级后插件恢复
+
+- 软件源连不上时持续重试（前 5 分钟每 10 秒，之后每 5 分钟），不再等下次重启；
+  个别包安装失败时最多重试 6 轮，并用锁防止重复运行。
+- `sysupgrade` 记录升级前被禁用的服务（`/etc/backup/disabled_services.txt`），插件重装后
+  再次停止并禁用它们，避免安装脚本把服务重新启用。
+
+### 清理
+
+- 删除 XG2010G 用不到的 brightspeed 新增内容：MT7996 板级包和 NPU 固件、
+  brightspeed 专有的 mt76/mac80211/hostapd 补丁、`luci-app-mlo`、clientstatus、
+  远程构建脚本、`luci-ui-checks`、`configs/release.config`、dawn/smartdns feed 补丁、
+  上游 ImmortalWrt 的 issue 模板。路径记录在 `scripts/xg2010g-unused-paths.sh`，
+  同步后由裁剪脚本再次删除，并由 `check-xg2010g-only.sh` 检查。
+
+### CI 与发布
+
+- Release 只上传一个 sysupgrade `.itb`，SHA256 写进 Release 说明。
+- 新增 watch-brightspeed：每天检查 brightspeed 上游，有新提交时创建并指派同步 issue。
+
+## 2026-11-20
+
+### XG2010G-only 精简
+
+- 导入 brightspeed 2026-11-13 快照，删除其他机型的设备定义、DTS 和配置；新增可重复执行的
+  裁剪脚本和 `check-xg2010g-only.sh`。
+- 可选第三方包改为 `=m`，不进入镜像，通过 extras 源发布；`sysupgrade` 默认记录已安装包，
+  升级后由 `xg2010g-restore-packages` 自动重装用户插件。
+
 ## 2026-10-08
 
 ### 同步 ImmortalWrt 上游至 6.18.54

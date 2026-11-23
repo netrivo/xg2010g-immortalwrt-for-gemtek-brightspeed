@@ -109,9 +109,48 @@ sha256sum immortalwrt-*-gemtek_xg2010g-ubi-squashfs-sysupgrade.itb
 
 默认镜像只保留 XG2010G/PON/系统管理和 Argon 主题；代理、推送、媒体、远程组网等可选包由
 [`scripts/xg2010g-package-policy.txt`](scripts/xg2010g-package-policy.txt) 管理。这些可选包不会安装进镜像，而是以 `=m` 模块方式
-编译；`helloworld`、`pushbot` 两个 feed 的 `.apk` 会发布到每次构建对应的 extras 仓库，
+编译；`helloworld`、`pushbot` 两个 feed 和本仓库自带的 `lucky` 会发布到每次构建对应的 extras 仓库，
 其余包从官方 ImmortalWrt distfeeds 安装。镜像安装器只安装 `=y` 包，所以 `=m` 不会增加
 默认镜像体积。
+
+### 默认自带的插件
+
+| 插件 | 用途 |
+| --- | --- |
+| `luci-app-onu` | PON/ONU 设置 |
+| `luci-app-pon-status` | PON 光链路状态 |
+| `luci-app-clients` | 已连接的客户端 |
+| `luci-app-airoha-npu` | NPU / PPE 硬件加速状态 |
+| `luci-app-firewall` | 防火墙（默认已开启软件和硬件流量卸载、FullCone NAT） |
+| `luci-app-package-manager` | 软件包管理，用来安装下面的可选插件 |
+| `luci-app-ttyd` | 网页终端 |
+| `luci-theme-argon` / `luci-theme-bootstrap` | 默认主题 / 备用主题 |
+
+另外内置了语音（`asterisk`）、PON 守护进程（`airoha-ponctl`、`airoha-pond`）和常用诊断工具
+（`iperf3`、`tcpdump`、`curl`）。镜像内的完整包清单以对应构建的 `*.manifest` 为准。
+
+### 可选插件（不在镜像里，按需安装）
+
+| 插件 | 用途 | 安装来源 |
+| --- | --- | --- |
+| `luci-app-openclash` | Clash 代理 | 官方源 |
+| `luci-app-passwall` | 代理 | 官方源 |
+| `luci-app-ssr-plus` | 代理 | extras（helloworld） |
+| `luci-app-pbr` | 策略路由 | 官方源 |
+| `luci-app-zerotier` | ZeroTier 虚拟组网 | 官方源 |
+| `luci-app-lucky` | Lucky（端口转发、DDNS 等） | extras（本仓库） |
+| `luci-app-ddns` / `luci-app-ddns-go` | 动态域名 | 官方源 |
+| `luci-app-upnp` | UPnP 端口映射 | 官方源 |
+| `luci-app-udpxy` / `luci-app-msd_lite` / `luci-app-rtp2httpd` | IPTV 组播转 HTTP | 官方源 |
+| `luci-app-wol` / `luci-app-timewol` | 网络唤醒 / 定时唤醒 | 官方源 |
+| `luci-app-arpbind` | IP/MAC 绑定 | 官方源 |
+| `luci-app-autoreboot` | 定时重启 | 官方源 |
+| `luci-app-watchcat` | 网络检测与自动恢复 | 官方源 |
+| `luci-app-vlmcsd` | KMS 服务器 | 官方源 |
+| `luci-app-pushbot` | 消息推送 | extras（pushbot） |
+
+在 LuCI → 系统 → 软件包中搜索安装，或在 SSH 里执行 `apk update && apk add <插件名>`。
+中文翻译包（`luci-i18n-<插件>-zh-cn`）通常会随插件自动安装。
 
 `2010.config` 和 `feeds.conf.default` 是本地策略文件：同步 brightspeed 时保留本仓库版本，
 上游改动会输出 diff 供人工挑选，不会被自动合入。
@@ -143,6 +182,10 @@ sha256sum immortalwrt-*-gemtek_xg2010g-ubi-squashfs-sysupgrade.itb
 
 ## 升级和插件恢复
 
+目前**不支持自动在线升级**（设备不会自己检查和下载新版本）。升级方式是从 Releases 下载新的
+`.itb`，在 LuCI → 系统 → 备份/升级中刷写，或上传到设备后执行 `sysupgrade -v <文件>`，
+保留配置即可。升级后插件会自动恢复，过程如下。
+
 XG2010G 的 `sysupgrade` 默认会把当前已安装包列表写入备份里的
 `/etc/backup/installed_packages.txt`，把升级前被禁用的服务写入
 `/etc/backup/disabled_services.txt`。升级重启后，新镜像里的
@@ -162,13 +205,15 @@ XG2010G 的 `sysupgrade` 默认会把当前已安装包列表写入备份里的
 [`package/base-files/files/lib/upgrade/keep.d/xg2010g-configs`](package/base-files/files/lib/upgrade/keep.d/xg2010g-configs)
 跨升级保留。这里只放配置，不要加入插件二进制或大型规则集，因为 sysupgrade 在刷写前用 `/tmp`（内存）生成备份。
 
-extras 仓库发布在本仓库的 `packages` 分支，按 build ID 分目录，只保留最近 3 次构建：
+extras 仓库发布在本仓库的 `packages` 分支，按 build ID 分目录。最近 3 次构建和所有
+Release 构建会一直保留，更早的未发布构建会被清理：
 
 ```text
 https://raw.githubusercontent.com/<owner>/<repo>/packages/<build-id>/<feed>/packages.adb
 ```
 
-每个 build ID 目录下有 `helloworld/`、`pushbot/` 和 `kmods/`（本次内核对应的全部 `kmod-*`）。
+每个 build ID 目录下有 `helloworld/`、`pushbot/`、`kmods/`（本次内核对应的全部 `kmod-*`）
+和 `local/`（本仓库 `package/` 下的可选包，目前是 lucky）。
 镜像里的 `/etc/apk/repositories.d/xg2010g.list` 由 `scripts/set-extras-repo.sh` 在构建时生成，
 指向同一 build ID。索引和模块使用该次构建的 APK 签名密钥，镜像内置对应公钥。CI 构建会
 自动发布；本地构建如果不发布 extras，恢复服务会记录失败并保留列表，不影响系统启动。
@@ -176,17 +221,22 @@ https://raw.githubusercontent.com/<owner>/<repo>/packages/<build-id>/<feed>/pack
 
 > [!NOTE]
 > - 第一次从作者完整镜像刷到本仓库的最小镜像属于重装，旧镜像的 `sysupgrade` 不会生成包列表，
->   需要在刷机后手动安装一次插件；从这之后的本仓库 OTA 会自动恢复。
+>   需要在刷机后手动安装一次插件；之后再用本仓库固件升级时会自动恢复。
 > - 不要从旧固件的源安装 `kmod-*`，内核模块必须和当前内核完全匹配。
-> - 一个 build ID 的 extras 在之后第 3 次新构建发布时会被删除。长期不升级的设备如果需要
->   安装 extras 里的包，请先升级到较新的 Release。
+> - 只有直接使用 Actions 构件（未发布的构建）的设备，才会在之后 3 次新构建后失去对应的 extras；
+>   正式 Release 的 extras 会一直保留。
 
 ## 构建
 
 ### GitHub Actions（推荐）
 
 工作流 [Build XG2010G Firmware](.github/workflows/build-firmware.yml) 只能手动触发
-（Actions → Build XG2010G Firmware → Run workflow），推送代码不会自动编译。完整构建约 3.5 小时。
+（Actions → Build XG2010G Firmware → Run workflow），推送代码不会自动编译。没有缓存时完整构建约 3.5 小时；
+CI 会缓存源码包（`dl/`）和 ccache 编译缓存（上限 3 GB，构建失败时也会保存），之后的构建会复用。
+ccache 只在 CI 中开启，不改动 `2010.config`。
+
+每次推送和 PR 会自动运行 [Check](.github/workflows/check.yml)（约 1 分钟）：脚本语法、XG2010G-only 裁剪、
+distfeeds、PON 链路看门狗和升级插件恢复的测试。
 
 | 输入 | 说明 |
 | --- | --- |
@@ -274,8 +324,7 @@ GitHub Release 只发布上表第一行的 `.itb`，其余文件只在 Actions �
 2. 维护者按 issue 里的步骤同步、检查、编译，然后提 PR，在描述里写 `Closes #<issue 编号>`。
 3. PR 合并后 issue 自动关闭。
 
-`.brightspeed-upstream` 的 `source` 目前指向 fork `netrivo/ImmortalWrt-for-Gemtek-brightspeed`，
-同步前先执行 `gh repo sync netrivo/ImmortalWrt-for-Gemtek-brightspeed` 让 fork 追上 naoki66。同步：
+`.brightspeed-upstream` 的 `source` 直接指向 naoki66 仓库，和监控的来源一致。同步：
 
 ```bash
 git switch main
@@ -299,6 +348,7 @@ XG2010G 的修改。其他冲突仍会停下，按提示解决后再提交。
 | --- | --- | --- |
 | `scripts/check-xg2010g-only.sh` | 构建主机 | 确认代码树里只剩 XG2010G 的设备定义、DTS 和配置 |
 | `scripts/check-pon-link-watchdog.sh` | 构建主机 | PON 链路看门狗（`files/usr/sbin/pon-link-watchdog`）的回归测试，设备命令均为模拟 |
+| `scripts/check-restore-packages.sh` | 构建主机 | 升级后插件恢复脚本的测试（断网重试、禁用服务保持、失败保留列表），`apk` 等命令均为模拟 |
 | `scripts/check-distfeeds.sh` | 构建主机 | 检查运行时 distfeeds 只包含官方发布的 feed |
 | `scripts/check-gemtek-profile-isolation.sh` | 构建主机 | 检查 `.config`、内核配置和 manifest 没有混入其他机型的包 |
 | `scripts/check-firmware-artifacts.sh` | 构建主机 | 检查所选 profile 的 sysupgrade 镜像确实生成 |
@@ -309,6 +359,7 @@ XG2010G 的修改。其他冲突仍会停下，按提示解决后再提交。
 ```bash
 bash scripts/check-xg2010g-only.sh
 bash scripts/check-pon-link-watchdog.sh
+bash scripts/check-restore-packages.sh
 ```
 
 ## 仓库结构
@@ -326,6 +377,7 @@ bash scripts/check-pon-link-watchdog.sh
 | `docs/` | 技术文档和排障记录 |
 | `.github/workflows/build-firmware.yml` | CI 构建与发布 |
 | `.github/workflows/watch-brightspeed.yml` | 监控 brightspeed 上游，自动创建并指派同步 issue |
+| `.github/workflows/check.yml` | 推送和 PR 时的快速检查 |
 
 ## 技术文档
 

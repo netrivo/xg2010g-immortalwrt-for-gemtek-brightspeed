@@ -116,9 +116,48 @@ Its `SUPPORTED_DEVICES` accepts `gemtek,xg2010g-ubi`, `gemtek,xg2010g` and the o
 The default image keeps only XG2010G/PON/system management packages and the Argon theme. Optional packages —
 proxies, push notifications, media, remote networking and so on — are listed in
 [`scripts/xg2010g-package-policy.txt`](scripts/xg2010g-package-policy.txt). They are not installed into the image
-but built as `=m` modules. The `.apk` files from the `helloworld` and `pushbot` feeds are published to a per-build
-extras repository; everything else installs from the official ImmortalWrt distfeeds. The image installer only
-installs `=y` packages, so `=m` adds nothing to the image size.
+but built as `=m` modules. The `helloworld` and `pushbot` feeds and this repository's own `lucky` package are
+published to a per-build extras repository; everything else installs from the official ImmortalWrt distfeeds. The
+image installer only installs `=y` packages, so `=m` adds nothing to the image size.
+
+### Apps included by default
+
+| App | Purpose |
+| --- | --- |
+| `luci-app-onu` | PON/ONU settings |
+| `luci-app-pon-status` | PON optical link status |
+| `luci-app-clients` | Connected clients |
+| `luci-app-airoha-npu` | NPU / PPE hardware offload status |
+| `luci-app-firewall` | Firewall (software and hardware flow offload and FullCone NAT are on by default) |
+| `luci-app-package-manager` | Package manager, used to install the optional apps below |
+| `luci-app-ttyd` | Web terminal |
+| `luci-theme-argon` / `luci-theme-bootstrap` | Default / fallback theme |
+
+The image also includes voice (`asterisk`), the PON daemons (`airoha-ponctl`, `airoha-pond`) and common diagnostic
+tools (`iperf3`, `tcpdump`, `curl`). The `*.manifest` of each build is the authoritative package list.
+
+### Optional apps (not in the image, install on demand)
+
+| App | Purpose | Source |
+| --- | --- | --- |
+| `luci-app-openclash` | Clash proxy | Official feed |
+| `luci-app-passwall` | Proxy | Official feed |
+| `luci-app-ssr-plus` | Proxy | extras (helloworld) |
+| `luci-app-pbr` | Policy-based routing | Official feed |
+| `luci-app-zerotier` | ZeroTier virtual network | Official feed |
+| `luci-app-lucky` | Lucky (port forwarding, DDNS, etc.) | extras (this repository) |
+| `luci-app-ddns` / `luci-app-ddns-go` | Dynamic DNS | Official feed |
+| `luci-app-upnp` | UPnP port mapping | Official feed |
+| `luci-app-udpxy` / `luci-app-msd_lite` / `luci-app-rtp2httpd` | IPTV multicast to HTTP | Official feed |
+| `luci-app-wol` / `luci-app-timewol` | Wake-on-LAN / scheduled wake | Official feed |
+| `luci-app-arpbind` | IP/MAC binding | Official feed |
+| `luci-app-autoreboot` | Scheduled reboot | Official feed |
+| `luci-app-watchcat` | Connectivity watchdog | Official feed |
+| `luci-app-vlmcsd` | KMS server | Official feed |
+| `luci-app-pushbot` | Push notifications | extras (pushbot) |
+
+Install them from LuCI → System → Software, or over SSH with `apk update && apk add <app>`. Chinese translations
+(`luci-i18n-<app>-zh-cn`) are usually pulled in automatically.
 
 `2010.config` and `feeds.conf.default` are local policy files: syncing brightspeed keeps this repository's version
 and prints the upstream diff for manual review instead of merging it.
@@ -152,6 +191,10 @@ See [`feeds.conf.default`](feeds.conf.default) for the full definition. Local ch
 
 ## Upgrades and package restore
 
+There is **no automatic online upgrade** yet (the device does not check for or download new versions by itself).
+Download the new `.itb` from Releases and flash it in LuCI → System → Backup / Flash Firmware, or copy it to the
+device and run `sysupgrade -v <file>`, keeping settings. Packages are then restored automatically as follows.
+
 On the XG2010G, `sysupgrade` writes the list of installed packages to `/etc/backup/installed_packages.txt` and the
 services that were disabled to `/etc/backup/disabled_services.txt` in the backup. After the upgrade reboots, the
 `xg2010g-restore-packages` service in the new image runs in the background and:
@@ -172,14 +215,15 @@ services that were disabled to `/etc/backup/disabled_services.txt` in the backup
 Only put configuration there — no app binaries or large rule sets — because sysupgrade builds the backup in `/tmp`
 (RAM) before flashing.
 
-The extras repository is published on this repository's `packages` branch, one directory per build ID, keeping
-only the 3 most recent builds:
+The extras repository is published on this repository's `packages` branch, one directory per build ID. The 3 most
+recent builds and every release build are kept; older unreleased builds are pruned:
 
 ```text
 https://raw.githubusercontent.com/<owner>/<repo>/packages/<build-id>/<feed>/packages.adb
 ```
 
-Each build ID directory contains `helloworld/`, `pushbot/` and `kmods/` (every `kmod-*` for that kernel).
+Each build ID directory contains `helloworld/`, `pushbot/`, `kmods/` (every `kmod-*` for that kernel) and `local/`
+(optional packages from this repository's `package/` tree, currently lucky).
 `/etc/apk/repositories.d/xg2010g.list` in the image is generated at build time by `scripts/set-extras-repo.sh` and
 points at the same build ID. Indexes and modules are signed with that build's APK key, whose public key ships in
 the image. CI publishes the extras automatically; a local build that does not publish them makes the restore
@@ -188,18 +232,23 @@ service log a failure and keep its list, without affecting boot. On the device, 
 
 > [!NOTE]
 > - The first flash from the original author's full image to this minimal image is a reinstall: the old image's
->   `sysupgrade` does not record a package list, so reinstall your apps once by hand. Later OTA upgrades within
->   this repository restore them automatically.
+>   `sysupgrade` does not record a package list, so reinstall your apps once by hand. Later upgrades to newer
+>   firmware from this repository restore them automatically.
 > - Never install `kmod-*` from an older firmware's feed; kernel modules must match the running kernel exactly.
-> - A build ID's extras are deleted when the third newer build is published. Devices that have not been upgraded
->   for a while should move to a recent release before installing packages from the extras.
+> - Only devices running an unreleased Actions artifact lose their extras, after 3 newer builds; extras of published
+>   releases are kept for good.
 
 ## Building
 
 ### GitHub Actions (recommended)
 
 The [Build XG2010G Firmware](.github/workflows/build-firmware.yml) workflow is manual only
-(Actions → Build XG2010G Firmware → Run workflow); pushes never start a build. A full build takes about 3.5 hours.
+(Actions → Build XG2010G Firmware → Run workflow); pushes never start a build. A build without caches takes about
+3.5 hours. CI caches the source downloads (`dl/`) and a ccache compiler cache (capped at 3 GB, saved even when the
+build fails) for later builds. ccache is enabled in CI only; `2010.config` is unchanged.
+
+Every push and pull request runs [Check](.github/workflows/check.yml) (about a minute): script syntax, the
+XG2010G-only trim, distfeeds, and the PON link watchdog and package-restore tests.
 
 | Input | Meaning |
 | --- | --- |
@@ -293,8 +342,8 @@ Every upstream update goes through **issue → assignment → PR → close**:
    contains `Closes #<issue number>`.
 3. Merging the PR closes the issue.
 
-The `source` in `.brightspeed-upstream` currently points at the fork `netrivo/ImmortalWrt-for-Gemtek-brightspeed`;
-run `gh repo sync netrivo/ImmortalWrt-for-Gemtek-brightspeed` first so the fork catches up with naoki66. To sync:
+The `source` in `.brightspeed-upstream` points straight at the naoki66 repository, the same one the watcher monitors.
+To sync:
 
 ```bash
 git switch main
@@ -318,6 +367,7 @@ After syncing, run the [check scripts](#check-scripts) and trigger a build in Ac
 | --- | --- | --- |
 | `scripts/check-xg2010g-only.sh` | Build host | Confirms only XG2010G device definitions, DTS and configs remain |
 | `scripts/check-pon-link-watchdog.sh` | Build host | Regression tests for the PON link watchdog (`files/usr/sbin/pon-link-watchdog`), with device commands mocked |
+| `scripts/check-restore-packages.sh` | Build host | Tests for the post-upgrade package restore (offline retries, disabled services, kept lists), with `apk` mocked |
 | `scripts/check-distfeeds.sh` | Build host | Ensures runtime distfeeds list only officially published feeds |
 | `scripts/check-gemtek-profile-isolation.sh` | Build host | Ensures `.config`, kernel config and manifest contain no other board's packages |
 | `scripts/check-firmware-artifacts.sh` | Build host | Ensures the selected profile's sysupgrade image was produced |
@@ -328,6 +378,7 @@ Typical pre-commit checks:
 ```bash
 bash scripts/check-xg2010g-only.sh
 bash scripts/check-pon-link-watchdog.sh
+bash scripts/check-restore-packages.sh
 ```
 
 ## Repository layout
@@ -345,6 +396,7 @@ bash scripts/check-pon-link-watchdog.sh
 | `docs/` | Technical notes and troubleshooting records (Chinese) |
 | `.github/workflows/build-firmware.yml` | CI build and release |
 | `.github/workflows/watch-brightspeed.yml` | Watches brightspeed upstream and opens/assigns sync issues |
+| `.github/workflows/check.yml` | Fast checks on every push and pull request |
 
 ## Technical notes
 

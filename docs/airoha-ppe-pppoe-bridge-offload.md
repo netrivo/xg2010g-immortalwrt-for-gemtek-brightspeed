@@ -143,9 +143,10 @@ config defaults
         option flow_offloading_hw '1'      # ← 生成 `flags offload`，缺此项只会软件加速
 ```
 
-XG2010G 的默认配置不会自动设置这两项（原先自动设置它们的
-`18-xr1710g-firewall-defaults` 只用于 XR1710G，已随该机型删除），需要在
-LuCI → 网络 → 防火墙中开启软件和硬件流量卸载，或手动写入上面的配置。
+这两项默认已开启：ImmortalWrt 的
+`package/network/config/firewall4/patches/001-firewall4-add-support-for-fullcone-nat.patch`
+把 `flow_offloading 1` 和 `flow_offloading_hw 1` 写进了 firewall4 自带的默认
+`/etc/config/firewall`。如果在 LuCI → 网络 → 防火墙中关闭过，需要重新勾选。
 
 ### 4.3 桥/VLAN 配置要点
 
