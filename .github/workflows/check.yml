@@ -1,0 +1,65 @@
+name: Check
+
+# Fast checks on every push and pull request.  The full firmware build takes
+# hours and only runs on demand; these catch trim, policy, script and restore
+# regressions in about a minute.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Shell syntax
+        run: |
+          set -euo pipefail
+          # Repository-maintained bash scripts.
+          bash -n \
+            scripts/apply-feed-patches.sh \
+            scripts/apply-xg2010g-package-policy.sh \
+            scripts/apply-xg2010g-trim.sh \
+            scripts/check-*.sh \
+            scripts/fix-stale-golang-host.sh \
+            scripts/select-feed-providers.sh \
+            scripts/set-build-version.sh \
+            scripts/set-extras-repo.sh \
+            scripts/summarize-build-errors.sh \
+            scripts/sync-brightspeed.sh \
+            scripts/xg2010g-unused-paths.sh
+          # Scripts that run on the router under busybox ash.
+          for f in \
+            package/base-files/files/sbin/sysupgrade \
+            package/base-files/files/usr/sbin/xg2010g-restore-packages \
+            package/base-files/files/etc/init.d/xg2010g-restore-packages \
+            files/usr/sbin/pon-link-watchdog \
+            files/etc/uci-defaults/99-pon-link-watchdog \
+            target/linux/airoha/an7581/base-files/etc/uci-defaults/* \
+            target/linux/airoha/an7581/base-files/lib/upgrade/*.sh; do
+            dash -n "$f"
+          done
+
+      - name: XG2010G-only trim
+        run: bash scripts/check-xg2010g-only.sh
+
+      - name: Runtime distfeeds
+        run: bash scripts/check-distfeeds.sh
+
+      - name: PON link watchdog
+        run: bash scripts/check-pon-link-watchdog.sh
+
+      - name: Package restore after sysupgrade
+        run: bash scripts/check-restore-packages.sh
