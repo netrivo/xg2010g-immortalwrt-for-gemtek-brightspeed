@@ -1,7 +1,5 @@
 # ImmortalWrt for Gemtek XG2010G
 
-**简体中文** · [English →](README.en.md)
-
 [![Build](https://img.shields.io/github/actions/workflow/status/netrivo/xg2010g-immortalwrt-for-gemtek-brightspeed/build-firmware.yml?branch=main&label=Build)](https://github.com/netrivo/xg2010g-immortalwrt-for-gemtek-brightspeed/actions/workflows/build-firmware.yml)
 [![Upstream](https://img.shields.io/badge/upstream-immortalwrt-blue)](https://github.com/immortalwrt/immortalwrt)
 [![Kernel](https://img.shields.io/badge/kernel-6.18-red)](target/linux/generic/kernel-6.18)

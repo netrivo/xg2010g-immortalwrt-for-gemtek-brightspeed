@@ -36,4 +36,5 @@ xg2010g_unused_paths=(
 	package/firmware/wireless-regdb/patches/520-cn-all-30dbm.patch
 	package/lucky/README.md
 	package/lucky/doc
+	README.en.md
 )
