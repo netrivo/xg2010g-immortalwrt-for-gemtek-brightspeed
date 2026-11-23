@@ -86,12 +86,9 @@ jobs:
 
           ### 处理步骤
 
-          1. 如果 \`.brightspeed-upstream\` 的 \`source\` 指向 fork，先同步 fork：
-             \`gh repo sync netrivo/ImmortalWrt-for-Gemtek-brightspeed\`
-          2. \`git switch main && git pull && bash scripts/sync-brightspeed.sh\`
-          3. 运行 \`bash scripts/check-xg2010g-only.sh\` 和 \`bash scripts/check-pon-link-watchdog.sh\`
-          4. 推送 sync 分支，提 PR 并在描述里写 \`Closes #<本 issue 编号>\`
-          5. 在 Actions 中对 sync 分支手动运行 Build XG2010G Firmware，编译通过后合并 PR
+          1. \`git switch main && git pull && bash scripts/sync-brightspeed.sh\`
+          2. 推送 sync 分支，提 PR 并在描述里写 \`Closes #<本 issue 编号>\`；PR 会自动运行 Check
+          3. 在 Actions 中对 sync 分支手动运行 Build XG2010G Firmware，编译通过后合并 PR
 
           _由 [watch-brightspeed](https://github.com/$GH_REPO/actions/workflows/watch-brightspeed.yml) 自动维护。_
           EOF
