@@ -23,7 +23,7 @@ ImmortalWrt 上游合并不逐项展开，仅记录会影响本设备构建或�
 - Build XG2010G Firmware 缓存源码包（`dl/`）和 ccache 编译缓存（只在 CI 中开启
   `CONFIG_DEVEL`/`CONFIG_CCACHE`，上限 3 GB，构建失败也会保存），并在构建前清理
   runner 上用不到的 SDK 以腾出磁盘空间。
-- 新增 Check 工作流：每次推送和 PR 检查脚本语法、XG2010G-only 裁剪、distfeeds、
+- 新增 Check 工作流：创建或更新 PR 时检查脚本语法、XG2010G-only 裁剪、distfeeds、
   PON 链路看门狗和升级后插件恢复（新增 `scripts/check-restore-packages.sh`）。
 - extras 新增 `local/` 源，发布本仓库 `package/` 下的可选包。此前 `lucky`、
   `luci-app-lucky`、`luci-i18n-lucky-zh-cn` 以 `=m` 编译，但官方源和 extras 都没有，

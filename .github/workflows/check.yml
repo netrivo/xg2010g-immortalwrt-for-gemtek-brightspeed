@@ -1,13 +1,12 @@
 name: Check
 
-# Fast checks on every push and pull request.  The full firmware build takes
-# hours and only runs on demand; these catch trim, policy, script and restore
-# regressions in about a minute.
+# Fast checks for pull requests (opened, updated or reopened).  Pushes to
+# branches do not run it.  The full firmware build takes hours and only runs on
+# demand; these catch trim, policy, script and restore regressions in about a
+# minute.
 
 on:
-  push:
   pull_request:
-  workflow_dispatch:
 
 permissions:
   contents: read

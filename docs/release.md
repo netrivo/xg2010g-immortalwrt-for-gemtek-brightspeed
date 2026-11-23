@@ -19,7 +19,12 @@ tag 名不符合 `v<主>.<次>.<修订>[-<后缀>]`，或者 tag 不在 `main` �
 
 ## 1. 发布前检查
 
-- [ ] 要发布的改动都已合并到 `main`，`main` 上最新的 [Check](../.github/workflows/check.yml) 通过。
+- [ ] 要发布的改动都已合并到 `main`，对应 PR 的 [Check](../.github/workflows/check.yml) 都已通过。
+  Check 只在 PR 上运行；直接推送到 `main` 的改动，先在本地跑一遍同样的检查：
+  ```bash
+  bash scripts/check-xg2010g-only.sh && bash scripts/check-distfeeds.sh \
+    && bash scripts/check-pon-link-watchdog.sh && bash scripts/check-restore-packages.sh
+  ```
 - [ ] 没有未处理的 `upstream-sync` issue；如果有，先决定是同步后再发布，还是先发布。
 - [ ] [CHANGELOG.md](../CHANGELOG.md) 已记录这次要发布的改动。
 - [ ] 改动较大（同步上游、内核、包策略、升级流程）时，先在 Actions 里手动运行一次测试构建，确认能编译通过。

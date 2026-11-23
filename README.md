@@ -292,7 +292,7 @@ https://raw.githubusercontent.com/<owner>/<repo>/packages/<build-id>/<feed>/pack
 CI 会缓存源码包（`dl/`）和 ccache 编译缓存（上限 3 GB，构建失败时也会保存），之后的构建会复用。
 ccache 只在 CI 中开启，不改动 `2010.config`。
 
-每次推送和 PR 会自动运行 [Check](.github/workflows/check.yml)（约 1 分钟）：脚本语法、XG2010G-only 裁剪、
+创建或更新 PR 时会自动运行 [Check](.github/workflows/check.yml)（约 1 分钟，直接推送不运行）：脚本语法、XG2010G-only 裁剪、
 distfeeds、PON 链路看门狗和升级插件恢复的测试。
 
 发布一个版本（完整流程、真机验收清单和失败处理见 [发布流程](docs/release.md)）：
