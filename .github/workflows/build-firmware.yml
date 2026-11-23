@@ -314,28 +314,37 @@ jobs:
           retention-days: 30
         if: always()
 
-      - name: Prepare checksums
+      - name: Prepare release image
         if: github.event.inputs.release_type != 'none'
+        id: release_image
         shell: bash
         run: |
           cd bin/targets/airoha/an7581
           shopt -s nullglob
-          images=(*.itb)
-          manifests=(*manifest)
-          (( ${#images[@]} && ${#manifests[@]} )) || {
-            echo "Missing firmware images or package manifests" >&2
+          images=(*-gemtek_xg2010g-ubi-squashfs-sysupgrade.itb)
+          (( ${#images[@]} == 1 )) || {
+            echo "Expected exactly one XG2010G sysupgrade image, found ${#images[@]}: ${images[*]}" >&2
+            ls -la
             exit 1
           }
-          sha256sum -- "${images[@]}" "${manifests[@]}" > "sha256sums-xg2010g"
+          echo "path=$PWD/${images[0]}" >> "$GITHUB_OUTPUT"
+          echo "name=${images[0]}" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(sha256sum -- "${images[0]}" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
       - name: Build release body
         if: github.event.inputs.release_type != 'none'
         id: release_body
         env:
           RELEASE_NOTES: ${{ github.event.inputs.release_notes }}
+          IMAGE_NAME: ${{ steps.release_image.outputs.name }}
+          IMAGE_SHA256: ${{ steps.release_image.outputs.sha256 }}
         run: |
           {
             printf '%s\n' "$RELEASE_NOTES"
+            echo ""
+            echo "| 固件 | SHA256 |"
+            echo "| --- | --- |"
+            echo "| \`$IMAGE_NAME\` | \`$IMAGE_SHA256\` |"
             echo ""
             echo "---"
             echo ""
@@ -366,13 +375,6 @@ jobs:
           body: ${{ steps.release_body.outputs.body }}
           draft: false
           prerelease: ${{ github.event.inputs.release_type == 'prerelease' }}
-          files: |
-            /home/runner/w/bin/targets/airoha/an7581/*.itb
-            /home/runner/w/bin/targets/airoha/an7581/*manifest
-            /home/runner/w/bin/targets/airoha/an7581/config.buildinfo
-            /home/runner/w/bin/targets/airoha/an7581/feeds.buildinfo
-            /home/runner/w/bin/targets/airoha/an7581/version.buildinfo
-            /home/runner/w/bin/targets/airoha/an7581/sha256sums
-            /home/runner/w/bin/targets/airoha/an7581/sha256sums-*
+          files: ${{ steps.release_image.outputs.path }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
