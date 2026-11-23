@@ -1,201 +1,367 @@
-<img src="https://avatars.githubusercontent.com/u/53193414?s=200&v=4" alt="logo" width="200" height="200" align="right">
-
-# ImmortalWrt for Brightspeed / Gemtek: XR1710G & XG2010G
+# ImmortalWrt for Gemtek XG2010G
 
 **English** · [简体中文 →](README.md)
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/naoki66/ImmortalWrt-for-Gemtek-brightspeed/build-firmware.yml?branch=master&label=Build)](https://github.com/naoki66/ImmortalWrt-for-Gemtek-brightspeed/actions/workflows/build-firmware.yml)
-[![Sync Status](https://img.shields.io/github/actions/workflow/status/naoki66/ImmortalWrt-for-Gemtek-brightspeed/sync-upstream.yml?branch=master&label=Sync)](https://github.com/naoki66/ImmortalWrt-for-Gemtek-brightspeed/actions/workflows/sync-upstream.yml)
+[![Build](https://img.shields.io/github/actions/workflow/status/netrivo/xg2010g-immortalwrt-for-gemtek-brightspeed/build-firmware.yml?branch=main&label=Build)](https://github.com/netrivo/xg2010g-immortalwrt-for-gemtek-brightspeed/actions/workflows/build-firmware.yml)
 [![Upstream](https://img.shields.io/badge/upstream-immortalwrt-blue)](https://github.com/immortalwrt/immortalwrt)
-[![Kernel](https://img.shields.io/badge/kernel-6.18-red)](https://www.kernel.org/)
-[![SoC](https://img.shields.io/badge/SoC-Airoha%20AN7581-orange)]()
-[![License](https://img.shields.io/badge/license-GPL--2.0-green)](https://spdx.org/licenses/GPL-2.0-only.html)
+[![Kernel](https://img.shields.io/badge/kernel-6.18-red)](target/linux/generic/kernel-6.18)
+[![SoC](https://img.shields.io/badge/SoC-Airoha%20AN7581-orange)](target/linux/airoha)
+[![License](https://img.shields.io/badge/license-GPL--2.0-green)](COPYING)
 
-> An [ImmortalWrt](https://github.com/immortalwrt/immortalwrt)-based firmware project for the Airoha AN7581 platform. It maintains separate build configs and images for two hardware-isolated Brightspeed/Gemtek devices: the XR1710G (10G Wi-Fi 7 router) and the XG2010G (XG(S)-PON/XE-PON gateway).
+An [ImmortalWrt](https://github.com/immortalwrt/immortalwrt)-based firmware repository for the Gemtek XG2010G
+XG(S)-PON gateway. The code base is the 2026-11-13 snapshot of `netrivo/ImmortalWrt-for-Gemtek-brightspeed`
+(the commit is recorded in [`.brightspeed-upstream`](.brightspeed-upstream)). This repository **maintains the
+XG2010G only**; device definitions, DTS files and configs for the XR1710G, Nokia XG-040G and other boards have
+been removed.
 
-**Documentation baseline**: `master` @ `62056707` (verified 2026-11-10). Device profiles, package sets, and feed state are defined by the root-level `*.config` files, [`target/linux/airoha/image/an7581.mk`](target/linux/airoha/image/an7581.mk), and [`feeds.conf.default`](feeds.conf.default). Significant feature, stability, and patch changes are recorded in the [changelog](CHANGELOG.md). The current kernel baseline is `6.18.60` ([`target/linux/generic/kernel-6.18`](target/linux/generic/kernel-6.18)); upstream is merged by a scheduled job, so do not use a pinned commit badge to judge how current a build is.
-
-## At a glance
-
-| Device | Role | Seed config | Profile enabled today | Boot scheme / status | Default management URL |
-|--------|------|-------------|-----------------------|----------------------|-------------------------|
-| XR1710G (stock U-Boot layout + chainloader) | 10G Wi-Fi 7 router | [`1710.config`](1710.config) | `gemtek_xr1710g` | [naoki66/Gemtek-brightspeed-chainloader](https://github.com/naoki66/Gemtek-brightspeed-chainloader) | `http://192.168.50.1` |
-| XR1710G (OpenWrt U-Boot UBI layout) | Whole-NAND UBI boot scheme | [`1710.config`](1710.config) | Profile defined, not enabled in the seed | **Not finished: missing trueKey** | `http://192.168.50.1` |
-| XG2010G (1 GiB / 2 GiB auto-detect) | XG(S)-PON gateway | [`2010.config`](2010.config) | `gemtek_xg2010g-ubi` | [naoki66/uboot-an758x](https://github.com/naoki66/uboot-an758x) | `http://192.168.1.1` |
-| Nokia XG-040G-MD / XG-040G-TF (UBI, 512 MiB / 1 GiB auto-detect) | Additional device configs | [`040.config`](040.config) / [`040-tf.config`](040-tf.config) | Separate configs, not built by CI | [naoki66/uboot-an758x](https://github.com/naoki66/uboot-an758x) | `http://192.168.1.1` |
+- Kernel: Linux 6.18 (currently `6.18.60`, see [`target/linux/generic/kernel-6.18`](target/linux/generic/kernel-6.18))
+- Target: `airoha/an7581`, aarch64 Cortex-A53, musl, `apk` package manager
+- Significant feature, stability and patch changes are recorded in [CHANGELOG.md](CHANGELOG.md) (Chinese)
 
 > [!WARNING]
-> Although the XR1710G and XG2010G share the Airoha AN7581 platform, their partition layouts, device trees, and package sets differ completely. **Never cross-flash their firmware.** On the same device, stock-layout and UBI-layout images also cannot be interchanged because they use different `SUPPORTED_DEVICES` values.
->
-> The XR1710G OpenWrt U-Boot UBI layout is **not finished (missing trueKey)**. The XR1710G currently uses the "stock U-Boot layout + chainloader" scheme; see [Boot scheme and status](#boot-scheme-and-status).
+> This firmware is for the Gemtek XG2010G only. Do not flash it on an XR1710G or any other AN7581 device.
+> On the XG2010G itself, stock-layout and UBI-layout images cannot be interchanged either
+> (see [Boot and partition layouts](#boot-and-partition-layouts)).
 
 ## Contents
 
-[Quick start](#quick-start) · [Supported hardware](#supported-hardware) · [Factory defaults](#factory-defaults) · [Build and release](#build-and-release) · [Flashing and upgrade caveats](#flashing-and-upgrade-caveats) · [Credits](#credits) · [License](#license)
+[Quick start](#quick-start) · [Hardware](#hardware) · [Factory defaults](#factory-defaults) ·
+[Boot and partition layouts](#boot-and-partition-layouts) · [Package policy](#package-policy) ·
+[Upgrades and package restore](#upgrades-and-package-restore) · [Building](#building) ·
+[Syncing brightspeed updates](#syncing-brightspeed-updates) · [Check scripts](#check-scripts) ·
+[Repository layout](#repository-layout) · [Technical notes](#technical-notes) · [Credits](#credits) · [License](#license)
 
 ## Quick start
 
-**1. Download and verify an image.** Open the [Releases page](https://github.com/naoki66/ImmortalWrt-for-Gemtek-brightspeed/releases), pick the `*-squashfs-sysupgrade.itb` that exactly matches your device *and* partition layout, and download the matching per-config `sha256sums-<config>` file from the same release. Run this from the directory containing the images:
+**1. Download and verify an image.** From [Releases](https://github.com/netrivo/xg2010g-immortalwrt-for-gemtek-brightspeed/releases),
+download `*-gemtek_xg2010g-ubi-squashfs-sysupgrade.itb`. Each release contains only this one firmware file; its
+SHA256 is in the release notes, so check it after downloading:
 
 ```bash
-sha256sum -c sha256sums-1710.config   # XR1710G
-sha256sum -c sha256sums-2010.config   # XG2010G
+sha256sum immortalwrt-*-gemtek_xg2010g-ubi-squashfs-sysupgrade.itb
 ```
 
-Each release also ships a package manifest so you can inspect what the image contains. When several build configs share one release, use the checksum file that matches your firmware.
+The package manifest (`*.manifest`) and `*.buildinfo` files are in the matching build's Actions artifacts (kept for 30 days).
 
-**2. Flash.** To upgrade an existing installation, open LuCI → System → Backup / Flash Firmware → Flash image and select the file. For a first flash from stock firmware, or when switching to the UBI layout, read [Flashing and upgrade caveats](#flashing-and-upgrade-caveats) first. On the XG2010G you must confirm the boot state over serial and back up the stock partitions before proceeding. The XR1710G needs the chainloader written first (see [Boot scheme and status](#boot-scheme-and-status)), and its UBI-layout image is currently unusable.
+**2. Flash.**
 
-**3. Change the credentials immediately.** The `root` account has no password and Wi-Fi uses well-known factory SSIDs and a shared default key. Set the admin password, change the wireless keys and regulatory domain, then check hardware offload and thermal status on the NPU and fan pages.
+- Already running this firmware: LuCI → System → Backup / Flash Firmware → Flash image, with "Keep settings"
+  checked. Packages you installed yourself are reinstalled automatically after reboot
+  (see [Upgrades and package restore](#upgrades-and-package-restore)).
+- First flash, or switching from stock or another third-party firmware: read
+  [Boot and partition layouts](#boot-and-partition-layouts) first, confirm the current U-Boot and partition
+  layout over serial, and back up the stock partitions.
 
-## Supported hardware
+**3. Change the password right after the first login.** `root` has no password by default and the management
+URL is `http://192.168.1.1`. Also review the firewall and SSH settings, then check the optical link and hardware
+offload on the PON status and NPU pages.
 
-### Hardware and configuration comparison
+## Hardware
 
-| Item | XR1710G | XG2010G | Nokia XG-040G-MD | Nokia XG-040G-TF |
-|------|---------|---------|------------------|------------------|
-| **Role** | 10G Wi-Fi 7 router | XG(S)-PON gateway | XG(S)-PON gateway | XG(S)-PON gateway |
-| **SoC** | Airoha AN7581GT (1.3 GHz quad-core + 8-core NPU) | Airoha AN7581 / EN7581 | Airoha AN7581 / EN7581 | Airoha AN7581 / EN7581 |
-| **Memory** | 2 GiB DDR4 | 1 GiB DDR4; auto-detects 2 GiB hardware mods | 512 MiB / auto-detects 1 GiB hardware mods | 512 MiB / auto-detects 1 GiB hardware mods |
-| **Flash** | 512 MiB SPI-NAND | 512 MiB SPI-NAND (W25N04KV) | 256 MiB SPI-NAND (`all_flash` 0x10000000) | Same as MD |
-| **Ethernet** | 2×10G RTL8261BE + 2×1G AN7581 | 2×10G RTL8261N + 1×2.5G EN8811H + 1G switch ports | 1×2.5G EN8811H + 3×1G switch ports (lan2-lan4) | Same as MD |
-| **Optical access** | None (Ethernet-only) | EN7572 xPON front end | EN7572 xPON front end | EN7572 xPON front end |
-| **Wireless** | MT7996AV BE19000, tri-band 1376 / 5760 / 11520 Mbps | None | None | None |
-| **USB** | None | None | 2 USB ports | None |
-| **Fan / power** | NCT7802 PWM fan; 12 V 5 A | — | — | — |
-| **Device tree** | [`an7581-xr1710g.dts`](target/linux/airoha/dts/an7581-xr1710g.dts) (plus an unfinished UBI-layout DTS) | [`an7581-gemtek-xg2010g-ubi.dts`](target/linux/airoha/dts/an7581-gemtek-xg2010g-ubi.dts) | [`an7581-nokia_xg-040g-md-ubi.dts`](target/linux/airoha/dts/an7581-nokia_xg-040g-md-ubi.dts) | [`an7581-nokia_xg-040g-tf-ubi.dts`](target/linux/airoha/dts/an7581-nokia_xg-040g-tf-ubi.dts) |
-| **Seed config** | [`1710.config`](1710.config) | [`2010.config`](2010.config) | [`040.config`](040.config) | [`040-tf.config`](040-tf.config) |
-| **Boot / status** | Stock U-Boot + chainloader; UBI layout unfinished (missing trueKey) | naoki66/uboot-an758x; built by CI | naoki66/uboot-an758x; supplied config, not built by CI | Same as MD |
-| **Default management URL** | `http://192.168.50.1` | `http://192.168.1.1` | `http://192.168.1.1` | `http://192.168.1.1` |
+| Item | Details |
+| --- | --- |
+| SoC | Airoha/Econet AN7581 / EN7581 |
+| CPU | 4x Cortex-A53, ARM64 |
+| Memory | 1 GiB or 2 GiB DDR4 (U-Boot passes the actual size; one image fits both) |
+| Flash | Winbond W25N04K SPI-NAND, 512 MiB |
+| 10G ports x2 | RTL8261N, MDIO addresses 5 / 8 |
+| 2.5G port x1 | Airoha EN8811H, MDIO address 0xf |
+| 1G port x1 | Built-in switch ePHY |
+| PON | EN7572 BOSA, XGPON |
+| Voice | AN7581 PCM/SPI (`kmod-airoha-en7581-pcm-spi`); debug notes in [docs/xg2010g-voice-debug.md](docs/xg2010g-voice-debug.md) |
+| Wi-Fi / USB / eMMC | No usable module or physical interface |
 
-> Values come from each board DTS, [`an7581.mk`](target/linux/airoha/image/an7581.mk), and the root-level `*.config` files; "—" means the repo gives no value. The XR1710G radios use MT7976GN / MT7977BN / MT7977AN; their peak rates are theoretical 802.11be PHY figures totalling about 18.66 Gbps (BE19000 class). Exact MCS notation is 1375 / 5765 / 11530 Mbps - only a rounding difference. Sources: [D-Link DPN-BE19000GR](https://www.dlink.com.sg/products/be19000-tri-band-10g-wi-fi-7-router), [WikiDevi Brightspeed XR1710G](https://wikidevi.wi-cat.ru/Brightspeed_XR1710G), [MediaTek Filogic 880](https://www.mediatek.com/zh-tw/products/broadband-wifi/mediatek-filogic-880).
-
-`1710.config` currently sets `CONFIG_TARGET_MULTI_PROFILE is not set`, so one build produces only the `gemtek_xr1710g` image; `2010.config` enables only `gemtek_xg2010g-ubi`. The CI `config_seed` input accepts just `1710.config` and `2010.config` (default: `1710.config`).
-
-### Boot scheme and status
-
-> Maintainer note (2026-11-10): boot implementations live in separate repositories. This table maps them to the firmware configs here.
-
-| Device / layout | Boot implementation | Status |
-|-----------------|---------------------|--------|
-| XR1710G (stock U-Boot layout + chainloader) | [naoki66/Gemtek-brightspeed-chainloader](https://github.com/naoki66/Gemtek-brightspeed-chainloader) | Current scheme; preserves the stock first 6 MiB and writes a 1 MiB chainloader slot at NAND `0x600000` |
-| XR1710G (OpenWrt U-Boot UBI layout) | Requires rebuilding the boot area from `0x0` | **Not finished: missing trueKey**; do not flash images for this layout |
-| XG2010G (1 GiB / 2 GiB auto-detect) | [naoki66/uboot-an758x](https://github.com/naoki66/uboot-an758x) (`xg2010g` / `xg2010g-2g`) | In use |
-| Nokia XG-040G-MD / XG-040G-TF (UBI, 512 MiB / 1 GiB auto-detect) | [naoki66/uboot-an758x](https://github.com/naoki66/uboot-an758x) (`xg-040g-md` / `xg-040g-tf` and `-1g` targets) | In use |
-
-> [!WARNING]
-> The XR1710G OpenWrt U-Boot UBI layout is not finished (missing trueKey). Use only the "stock U-Boot layout + chainloader" scheme today and do not flash `gemtek_xr1710g-ubi` images. XG2010G and Nokia devices boot via `naoki66/uboot-an758x`; its boot-area layout differs from the chainloader scheme, so the two must not be mixed.
+Device trees: [`an7581-gemtek-xg2010g-ubi.dts`](target/linux/airoha/dts/an7581-gemtek-xg2010g-ubi.dts) (UBI layout) and
+[`an7581-xg2010g.dts`](target/linux/airoha/dts/an7581-xg2010g.dts) (stock layout).
+Device definitions live in [`target/linux/airoha/image/an7581.mk`](target/linux/airoha/image/an7581.mk).
 
 ## Factory defaults
 
-| Item | XR1710G | XG2010G |
-|------|---------|---------|
-| Management URL | `http://192.168.50.1` or `http://immortalwrt.lan` | `http://192.168.1.1` or `http://immortalwrt.lan` |
-| Username / password | `root` / no password | `root` / no password |
-| Wireless SSIDs | `ImmortalWrt-2G`, `ImmortalWrt-5G`, `ImmortalWrt-6G` | N/A |
-| Wireless key | Shared `12345678` | N/A |
-| Encryption | 2.4 GHz WPA2 (`psk2`), 5 GHz WPA2/WPA3 (`sae-mixed`), 6 GHz WPA3 (`sae`) | N/A |
-| Regulatory domain | `US` (see [03_wifi_defaults](package/network/config/airoha-an7581-mt7996-board/files/etc/board.d/03_wifi_defaults)) | N/A |
+| Item | Default |
+| --- | --- |
+| Management URL | `http://192.168.1.1` or `http://immortalwrt.lan` |
+| Username / password | `root` / no password |
+| Hostname | `XG2010G` |
+| LAN | `lan1 lan2 lan3 lan4` (panel order: two 10G, 2.5G, 1G) |
+| WAN | `pon0` |
+| Theme | `luci-theme-argon`, with `luci-theme-bootstrap` as fallback |
+| Wi-Fi | None |
 
-IPv6 uses SLAAC/EUI-64 with DHCPv6/NDP and RA DNS/extra flags disabled to reduce compatibility problems on Chinese ISP networks.
+Port mapping is defined in [`02_network`](target/linux/airoha/an7581/base-files/etc/board.d/02_network).
+After the first flash, run `scripts/check-xg2010g-network.sh` on the device to verify LAN, fw4 and DHCP.
+
+## Boot and partition layouts
+
+| Profile | Boot chain | Partitions |
+| --- | --- | --- |
+| `gemtek_xg2010g` | Stock bootloader + chainloader U-Boot | `bootloader` / `uenv` / `dsd` / `chainloader@0x600000` / `system` UBI@0x700000 |
+| `gemtek_xg2010g-ubi` | OpenWrt U-Boot (`xg2010g` / `xg2010g-2g` targets of [naoki66/uboot-an758x](https://github.com/naoki66/uboot-an758x)) | `bl2@0` / `ubi@0x20000` (fip, ubootenv, ubootenv2, factory, fit) |
+
+The default `2010.config` selects only `gemtek_xg2010g-ubi`, and CI and releases produce only that image.
+Its `SUPPORTED_DEVICES` accepts `gemtek,xg2010g-ubi`, `gemtek,xg2010g` and the old `-2g` variants, so 1 GiB and
+2 GiB boards use the same image.
 
 > [!WARNING]
-> Factory credentials are public knowledge. Change the root password and wireless keys on first login, and review the firewall and SSH settings before exposing the device to the internet.
+> - Never mix the two layouts. The UBI-layout image carries `DEVICE_COMPAT_VERSION 2.0`; **never force an
+>   upgrade from the legacy `0x00600000` layout**.
+> - Before the first flash, confirm over serial that the running U-Boot matches the chosen profile, and take a
+>   full NAND backup — at minimum `bootloader`, `uenv`, `dsd`, `factory`/`art` and calibration data.
+> - Upgrades only rewrite the `fit` volume inside `ubi`; `bl2`, `fip`, `ubootenv`, `ubootenv2`, `factory` and
+>   `reserved_bmt` must be preserved.
+> - `fit` is a dynamic volume that sysupgrade and U-Boot recreate to the new image size; the image limit is set
+>   by `IMAGE_SIZE` (currently 128 MiB).
 
-## Build and release
+## Package policy
 
-### Seed configs
+The default image keeps only XG2010G/PON/system management packages and the Argon theme. Optional packages —
+proxies, push notifications, media, remote networking and so on — are listed in
+[`scripts/xg2010g-package-policy.txt`](scripts/xg2010g-package-policy.txt). They are not installed into the image
+but built as `=m` modules. The `.apk` files from the `helloworld` and `pushbot` feeds are published to a per-build
+extras repository; everything else installs from the official ImmortalWrt distfeeds. The image installer only
+installs `=y` packages, so `=m` adds nothing to the image size.
 
-| File | Target profile | Purpose |
-|------|----------------|---------|
-| [`1710.config`](1710.config) | `DEVICE_gemtek_xr1710g` | XR1710G stock layout, CI default |
-| [`2010.config`](2010.config) | `DEVICE_gemtek_xg2010g-ubi` | XG2010G UBI layout, 1 GiB / 2 GiB auto-detect |
-| [`040.config`](040.config) | `DEVICE_nokia_xg-040g-md-ubi` | Nokia XG-040G-MD, additional config (512 MiB / 1 GiB auto-detect) |
-| [`040-tf.config`](040-tf.config) | `DEVICE_nokia_xg-040g-tf-ubi` | Nokia XG-040G-TF, additional config (512 MiB / 1 GiB auto-detect) |
+`2010.config` and `feeds.conf.default` are local policy files: syncing brightspeed keeps this repository's version
+and prints the upstream diff for manual review instead of merging it.
 
-`make defconfig` and `make menuconfig` never rewrite these seed files; they are copied with `cp <config> .config`. CI exposes only the first two as `config_seed` choices.
+- The UI uses `luci-theme-argon` (jerrykuku's argon feed), with `luci-theme-bootstrap` as fallback.
+- Simplified Chinese translations of optional apps (`luci-i18n-*-zh-cn`) are built as `=m` with their apps and are
+  not in the image; those belonging to `helloworld`/`pushbot` are published with the extras, the rest install from
+  the official LuCI feed.
+- PON/ONU tools (`luci-app-onu`, `luci-app-pon-status`, `luci-app-clients`, `luci-app-airoha-npu`) are part of the
+  device base and stay in the image.
+- To put an optional package into the image: delete its line from `scripts/xg2010g-package-policy.txt`, set it to
+  `y` in `2010.config`, then rerun the policy check and the build.
+- For packages that should only be installed on the device: leave the policy line alone and install them from the
+  extras repository after the build.
+
+### Feeds
+
+| Feed | Source | Purpose |
+| --- | --- | --- |
+| `packages` / `luci` | immortalwrt | Official packages and LuCI, served at runtime by distfeeds |
+| `routing` / `telephony` | openwrt | Official packages, served at runtime by distfeeds |
+| `argon` | jerrykuku/luci-theme-argon | Default theme (local patches in `patches/feeds/argon/`) |
+| `app_airoha` | naoki66/luci-app-airoha | Airoha LuCI apps: NPU, fan, network mode, etc. |
+| `pon_drivers` | naoki66/openwrt-pon-drivers | PON kernel drivers |
+| `onu_config` | naoki66/OpenWrt_ONU_CONFIG | PON/ONU user space and LuCI |
+| `helloworld` | fw876/helloworld (`dev` branch) | Optional proxy apps, published as extras |
+| `pushbot` | naoki66/luci-app-pushbot | Optional push app, published as extras |
+
+See [`feeds.conf.default`](feeds.conf.default) for the full definition. Local changes to feeds live in
+[`patches/feeds/`](patches/feeds) and are applied by `scripts/apply-feed-patches.sh`.
+
+## Upgrades and package restore
+
+On the XG2010G, `sysupgrade` writes the list of installed packages to `/etc/backup/installed_packages.txt` in the
+backup. After the upgrade reboots, the `xg2010g-restore-packages` service in the new image:
+
+1. Only handles packages that lived in the old image's overlay (packages the user installed); packages preinstalled
+   in the old ROM are not carried into the minimal image.
+2. Skips packages already present in the new image, waits for the network, then runs `apk update` and `apk add`.
+3. Keeps the list and retries on the next boot if anything fails; deletes it once everything succeeds. The log is
+   `/tmp/xg2010g-restore.log`, also available via `logread -e xg2010g-restore`.
+
+`/etc/config/` and the config directories of common apps survive upgrades through
+[`package/base-files/files/lib/upgrade/keep.d/xg2010g-configs`](package/base-files/files/lib/upgrade/keep.d/xg2010g-configs).
+Only put configuration there — no app binaries or large rule sets — because sysupgrade builds the backup in `/tmp`
+(RAM) before flashing.
+
+The extras repository is published on this repository's `packages` branch, one directory per build ID, keeping
+only the 3 most recent builds:
+
+```text
+https://raw.githubusercontent.com/<owner>/<repo>/packages/<build-id>/<feed>/packages.adb
+```
+
+Each build ID directory contains `helloworld/`, `pushbot/` and `kmods/` (every `kmod-*` for that kernel).
+`/etc/apk/repositories.d/xg2010g.list` in the image is generated at build time by `scripts/set-extras-repo.sh` and
+points at the same build ID. Indexes and modules are signed with that build's APK key, whose public key ships in
+the image. CI publishes the extras automatically; a local build that does not publish them makes the restore
+service log a failure and keep its list, without affecting boot. On the device, run `apk update` and then
+`apk add <package>`; the LuCI software page lists these feeds too.
+
+> [!NOTE]
+> - The first flash from the original author's full image to this minimal image is a reinstall: the old image's
+>   `sysupgrade` does not record a package list, so reinstall your apps once by hand. Later OTA upgrades within
+>   this repository restore them automatically.
+> - Never install `kmod-*` from an older firmware's feed; kernel modules must match the running kernel exactly.
+> - A build ID's extras are deleted when the third newer build is published. Devices that have not been upgraded
+>   for a while should move to a recent release before installing packages from the extras.
+
+## Building
+
+### GitHub Actions (recommended)
+
+The [Build XG2010G Firmware](.github/workflows/build-firmware.yml) workflow is manual only
+(Actions → Build XG2010G Firmware → Run workflow); pushes never start a build. A full build takes about 3.5 hours.
+
+| Input | Meaning |
+| --- | --- |
+| `release_type` | `none`: upload Actions artifacts only; `release` / `prerelease`: also create a GitHub Release |
+| `release_notes` | Release notes, optional |
+
+A build:
+
+1. Derives the build ID `<YYYYMMDD>-<8-char repo commit>-<8-char brightspeed commit>` (date in Asia/Shanghai).
+2. Updates and installs feeds, selects feed providers and applies `patches/feeds/`.
+3. Writes the extras feed URLs, applies the package policy, sets version info and runs the config checks
+   (distfeeds, profile isolation, XG2010G-only).
+4. Downloads sources and builds `world`; on failure it rebuilds the first failing package with `V=s` and prints an
+   error summary.
+5. Checks the image and manifest, then publishes the extras to the `packages` branch.
+6. Uploads artifacts (kept for 30 days). With a release selected, it creates tag `<YYYYMMDD>-<commit>` and uploads
+   **only the single `.itb` image**, with its SHA256 in the release notes. Publishing fails unless exactly one
+   image was built.
 
 ### Local build
 
+Requirements: x86_64 GNU/Linux (Debian 12+ / Ubuntu 22.04+ recommended) with at least 4 GB RAM; optional packages
+are built as `=m` too, so leave plenty of disk space. Keep the checkout path short (for example `~/w`): long paths
+push host Python install paths past OpenWrt's 124-character limit.
+
 ```bash
-git clone https://github.com/naoki66/ImmortalWrt-for-Gemtek-brightspeed.git
-cd ImmortalWrt-for-Gemtek-brightspeed
+sudo apt update
+sudo apt install build-essential clang gcc g++ binutils bzip2 gawk gettext git \
+  libncurses-dev libssl-dev python3 python3-setuptools rsync unzip wget \
+  xsltproc zlib1g-dev file which perl sed make
+
 ./scripts/feeds update -a
 ./scripts/feeds install -a
 bash scripts/fix-stale-golang-host.sh
-cp 1710.config .config          # or 2010.config / 040.config / 040-tf.config
+bash scripts/select-feed-providers.sh
+bash scripts/apply-feed-patches.sh
+
+# Optional: write the extras feed URLs (only useful if you also publish extras to a packages branch)
+# bash scripts/set-extras-repo.sh <owner/repo> <build-id>
+
+bash scripts/apply-xg2010g-package-policy.sh 2010.config
+cp 2010.config .config
 make defconfig
 bash scripts/set-build-version.sh .config
+bash scripts/check-xg2010g-only.sh
+
+make download -j$(nproc)
 make -j$(nproc) world 2>&1 | tee build.log
-bash scripts/summarize-build-errors.sh build.log
+bash scripts/summarize-build-errors.sh build.log   # error summary on failure
 ```
 
 > [!NOTE]
-> `make defconfig` and `make menuconfig` only modify `.config`. If you run either command, re-run `bash scripts/set-build-version.sh .config` before building so that `CONFIG_VERSION_*`, `CONFIG_TARGET_HOSTNAME`, `CONFIG_EXTRA_IMAGE_NAME`, and related build metadata are restored before `make world`.
+> `make defconfig` and `make menuconfig` only change `.config`, never `2010.config`. Rerun
+> `bash scripts/set-build-version.sh .config` after either one, otherwise `CONFIG_VERSION_*`,
+> `CONFIG_TARGET_HOSTNAME` and related fields fall back to defaults. Copy any config change you want to keep back
+> into `2010.config` by hand.
 
-Build environment: GNU/Linux (Debian 11+ recommended), AMD64, at least 4 GB RAM and 25 GB free disk (parallel builds benefit from more). See the [OpenWrt build system guide](https://openwrt.org/docs/guide-developer/build-system/install-buildsystem) for the dependency list.
+`world` builds the `=m` optional packages into `bin/packages/` without installing them into the image. CI also
+publishes `helloworld`, `pushbot` and the kernel modules to the `packages` branch and writes the extras feed URLs
+into the image; a local build that does not need extras can skip publishing and the image still works.
 
-The build pipeline runs `cp <config> .config && make defconfig && bash scripts/set-build-version.sh .config`: version fields are written **after** `defconfig` so defaults cannot overwrite them. [`scripts/set-build-version.sh`](scripts/set-build-version.sh) also writes the build date and commit hash visible in LuCI. Image filenames keep only `date-repo-commit`, while the full `date-repo-commit-upstream-commit` goes into `CONFIG_VERSION_CODE`, visible on the LuCI status page and in `/etc/openwrt_release`. To include the revision in filenames, run `VERSION_CODE_FILENAMES=y bash scripts/set-build-version.sh .config`.
+### Output
 
-### Download files
+Output lands in `bin/targets/airoha/an7581/`:
 
-| Layout | sysupgrade filename |
-|--------|---------------------|
-| XR1710G stock layout | `immortalwrt-naoki66-YYYYMMDD-<repo-hash>-airoha-an7581-gemtek_xr1710g-squashfs-sysupgrade.itb` |
-| XR1710G OpenWrt U-Boot UBI layout (**not finished, do not flash**) | `immortalwrt-naoki66-YYYYMMDD-<repo-hash>-airoha-an7581-gemtek_xr1710g-ubi-squashfs-sysupgrade.itb` |
-| XG2010G UBI layout | `immortalwrt-naoki66-YYYYMMDD-<repo-hash>-airoha-an7581-gemtek_xg2010g-ubi-squashfs-sysupgrade.itb` |
+| File | Meaning |
+| --- | --- |
+| `immortalwrt-naoki66-<YYYYMMDD>-<commit>-airoha-an7581-gemtek_xg2010g-ubi-squashfs-sysupgrade.itb` | sysupgrade image |
+| `*.manifest` | Packages in the image |
+| `config.buildinfo` / `feeds.buildinfo` / `version.buildinfo` | Build config, feed revisions and version info |
+| `sha256sums` | Checksums |
 
-The XR1710G UBI layout is **not finished (missing trueKey)**; even if enabling the `gemtek_xr1710g-ubi` profile produces an image, do not flash it. Use the "stock U-Boot layout + chainloader" scheme instead. Every release also ships a package manifest and per-config `sha256sums-<config>` files.
+GitHub Releases publish only the `.itb` in the first row; everything else stays in the Actions artifacts.
 
-## Flashing and upgrade caveats
+File names contain only `date-repo-commit`; the full build ID (including the brightspeed commit) is written to
+`CONFIG_VERSION_CODE` and shown on the LuCI status page and in `/etc/openwrt_release`.
 
-> [!WARNING]
-> **XR1710G boot**: stock-layout firmware must be booted with [naoki66/Gemtek-brightspeed-chainloader](https://github.com/naoki66/Gemtek-brightspeed-chainloader) (preserves the stock first 6 MiB, chainloader at NAND `0x600000`). The OpenWrt U-Boot UBI layout is not finished (missing trueKey); do not flash `gemtek_xr1710g-ubi` images. XG2010G and Nokia devices use [naoki66/uboot-an758x](https://github.com/naoki66/uboot-an758x) — never mix the two boot layouts.
+## Syncing brightspeed updates
 
-> [!WARNING]
-> **First flash on XG2010G**: confirm the current boot state over serial and make a verified read-only backup of the stock NAND / critical partitions. Upgrade only the matching `ubi` partition; preserve `bootloader`, `uenv`, `dsd`, and `reserved_bmt`. Never use an XR1710G image or partition table on the XG2010G, and never force an upgrade from the legacy `0x00600000` layout.
+This repository no longer merges ImmortalWrt upstream directly; it follows snapshots of the brightspeed repository
+([naoki66/ImmortalWrt-for-Gemtek-brightspeed](https://github.com/naoki66/ImmortalWrt-for-Gemtek-brightspeed)).
+[`.brightspeed-upstream`](.brightspeed-upstream) records the last imported brightspeed commit.
 
-> [!WARNING]
-> **Upgrading across versions**: LuCI's "Keep settings" does not preserve packages you installed later. Back up your configuration and record installed packages (`apk list --installed` or the LuCI installed-packages list) before upgrading, then reinstall anything that is not preinstalled (for example `luci-app-adguardhome`). Use packages that match the new firmware and never restore `kmod-*` modules from an older kernel.
+Every upstream update goes through **issue → assignment → PR → close**:
+
+1. [Watch Brightspeed Upstream](.github/workflows/watch-brightspeed.yml) compares upstream `master` with
+   `.brightspeed-upstream` daily at 09:00 Asia/Shanghai. When there are new commits it opens an issue labelled
+   `upstream-sync`, lists the commits and assigns it to the maintainer. If a sync issue is already open it updates
+   that issue and adds a comment instead of opening another. It can also be run manually from Actions.
+2. The maintainer syncs, checks and builds following the steps in the issue, then opens a PR whose description
+   contains `Closes #<issue number>`.
+3. Merging the PR closes the issue.
+
+The `source` in `.brightspeed-upstream` currently points at the fork `netrivo/ImmortalWrt-for-Gemtek-brightspeed`;
+run `gh repo sync netrivo/ImmortalWrt-for-Gemtek-brightspeed` first so the fork catches up with naoki66. To sync:
+
+```bash
+git switch main
+git pull
+bash scripts/sync-brightspeed.sh
+```
+
+The script runs a three-way merge with `git merge-tree --merge-base=<last snapshot>` and then reapplies the
+XG2010G-only trim with `scripts/apply-xg2010g-trim.sh`. If conflicts fall only in device definitions, DTS files or
+removed paths, it retries with `-X ours`, keeping the local trim while taking upstream XG2010G changes. Any other
+conflict stops the script; resolve it as prompted and commit.
+
+`2010.config` and `feeds.conf.default` always keep this repository's version. If upstream changed them, the script
+saves the upstream diff to `/tmp/brightspeed-config-*.diff`; cherry-pick what you want by hand.
+
+After syncing, run the [check scripts](#check-scripts) and trigger a build in Actions to confirm it compiles.
+
+## Check scripts
+
+| Script | Runs on | Purpose |
+| --- | --- | --- |
+| `scripts/check-xg2010g-only.sh` | Build host | Confirms only XG2010G device definitions, DTS and configs remain |
+| `scripts/check-pon-link-watchdog.sh` | Build host | Regression tests for the PON link watchdog (`files/usr/sbin/pon-link-watchdog`), with device commands mocked |
+| `scripts/check-distfeeds.sh` | Build host | Ensures runtime distfeeds list only officially published feeds |
+| `scripts/check-gemtek-profile-isolation.sh` | Build host | Ensures `.config`, kernel config and manifest contain no other board's packages |
+| `scripts/check-firmware-artifacts.sh` | Build host | Ensures the selected profile's sysupgrade image was produced |
+| `scripts/check-xg2010g-network.sh` | Device | Verifies LAN, fw4 and DHCP after flashing |
+
+Typical pre-commit checks:
+
+```bash
+bash scripts/check-xg2010g-only.sh
+bash scripts/check-pon-link-watchdog.sh
+```
+
+## Repository layout
+
+| Path | Contents |
+| --- | --- |
+| `2010.config` | XG2010G seed config (local policy file) |
+| `feeds.conf.default` | Feed list (local policy file) |
+| `.brightspeed-upstream` | Last synced brightspeed commit and date |
+| `target/linux/airoha/` | AN7581 target: device definitions, DTS, kernel patches, base-files |
+| `package/` | Package definitions, including the sysupgrade keep list and package restore service |
+| `files/` | Files copied straight into the image (PON link watchdog, generated extras feed list) |
+| `patches/feeds/` | Local patches for third-party feeds |
+| `scripts/` | Build, package policy, trim, sync and check scripts |
+| `docs/` | Technical notes and troubleshooting records (Chinese) |
+| `.github/workflows/build-firmware.yml` | CI build and release |
+| `.github/workflows/watch-brightspeed.yml` | Watches brightspeed upstream and opens/assigns sync issues |
+
+## Technical notes
+
+These documents are written in Chinese.
+
+- [Airoha bridge flowtable offload](docs/airoha-bridge-flowtable-offload.md)
+- [Airoha PPE PPPoE bridge offload](docs/airoha-ppe-pppoe-bridge-offload.md) and its [verification](docs/airoha-bridge-pppoe-offload-verification.md)
+- [AN7581 CPU clock policy](docs/an7581-cpu-clock-policy.md)
+- [PON RX stall recovery (2026-11-08)](docs/pon-rx-stall-recovery-20261108.md)
+- [pppd TDB script child use-after-free](docs/pppd-tdb-script-child-use-after-free.md)
+- [XG2010G voice debugging](docs/xg2010g-voice-debug.md)
+- [XG2010G-only trim design](docs/superpowers/specs/2026-11-20-xg2010g-only-design.md) and [implementation plan](docs/superpowers/plans/2026-11-20-xg2010g-only-merge.md)
 
 ## Credits
 
-### Upstream firmware
-
-- [immortalwrt/immortalwrt](https://github.com/immortalwrt/immortalwrt) - ImmortalWrt main project
-- [immortalwrt/luci](https://github.com/immortalwrt/luci) - LuCI web interface
-- [immortalwrt/packages](https://github.com/immortalwrt/packages) - Community package feed
-- [openwrt/routing](https://github.com/openwrt/routing) - OpenWrt routing packages
-- [openwrt/mt76](https://github.com/openwrt/mt76) - MediaTek WiFi driver
-
-### Reference projects
-
-- [YYH2913/openwrt](https://github.com/YYH2913/openwrt) - XR1710G 6.18 kernel integration reference
-- [hurrian/openwrt-w1700k](https://github.com/hurrian/openwrt-w1700k) - XR1710G PCIe 3.0 x2 patch reference (912 Gen3 link negotiation)
-- [lvcdy/openwrt_xr1710g](https://github.com/lvcdy/openwrt_xr1710g) - Early XR1710G porting reference (partition table, PHY configuration)
-- [Gilly1970/Gemtek-W1700K](https://github.com/Gilly1970/Gemtek-W1700K) - Airoha fan control and FlowSense (commit `db3f1c8`)
-- [pbs05/uboot-an758x](https://github.com/pbs05/uboot-an758x) - Upstream reference for the OpenWrt U-Boot and whole-NAND UBI boot scheme; later forked into [naoki66/uboot-an758x](https://github.com/naoki66/uboot-an758x)
-- [naoki66/uboot-an758x](https://github.com/naoki66/uboot-an758x) - U-Boot / UBI boot implementation used by XG2010G and Nokia XG-040G-MD / XG-040G-TF
-
-### XG2010G / Nokia XG-040G-MD / XG-040G-TF PON drivers and user space
-
-- [pbs05/openwrt-pon-drivers](https://github.com/pbs05/openwrt-pon-drivers) - Early 6.18 PON driver; later forked into [naoki66/openwrt-pon-drivers](https://github.com/naoki66/openwrt-pon-drivers)
-- [pbs05/openwrt-pon-userspace](https://github.com/pbs05/openwrt-pon-userspace) - Early 6.18 PON driver; later forked into [naoki66/OpenWrt_ONU_CONFIG](https://github.com/naoki66/OpenWrt_ONU_CONFIG)
-
-### LuCI application sources
-
-**[naoki66/luci-app-airoha](https://github.com/naoki66/luci-app-airoha)** is the main source of Airoha-specific LuCI apps in this firmware, providing `luci-app-airoha-npu`, `luci-app-airoha-fancontrol`, `luci-app-netmode` and more. The exact preinstalled set is defined by the root-level `*.config` files.
-
-Other sources:
-
-- [sirpdboy/luci-app-lucky](https://github.com/sirpdboy/luci-app-lucky) - Lucky multi-purpose tool
+- [immortalwrt/immortalwrt](https://github.com/immortalwrt/immortalwrt), [immortalwrt/luci](https://github.com/immortalwrt/luci), [immortalwrt/packages](https://github.com/immortalwrt/packages): upstream firmware, LuCI and packages
+- [naoki66/ImmortalWrt-for-Gemtek-brightspeed](https://github.com/naoki66/ImmortalWrt-for-Gemtek-brightspeed): the original project this code base comes from
+- [naoki66/uboot-an758x](https://github.com/naoki66/uboot-an758x) (from [pbs05/uboot-an758x](https://github.com/pbs05/uboot-an758x)): OpenWrt U-Boot / UBI boot used by the XG2010G
+- [naoki66/openwrt-pon-drivers](https://github.com/naoki66/openwrt-pon-drivers) (from [pbs05/openwrt-pon-drivers](https://github.com/pbs05/openwrt-pon-drivers)): PON drivers
+- [naoki66/OpenWrt_ONU_CONFIG](https://github.com/naoki66/OpenWrt_ONU_CONFIG) (from [pbs05/openwrt-pon-userspace](https://github.com/pbs05/openwrt-pon-userspace)): PON user space
+- [naoki66/luci-app-airoha](https://github.com/naoki66/luci-app-airoha): Airoha-specific LuCI apps
+- [jerrykuku/luci-theme-argon](https://github.com/jerrykuku/luci-theme-argon): Argon theme
 
 ## License
 
-[GPL-2.0-only](https://spdx.org/licenses/GPL-2.0-only.html), inherited from ImmortalWrt.
-
-## Support
-
-If this firmware is useful to you, you can buy the author a coffee.
-
-<img src="c6ea388c976395326514814f80d512d5.png" alt="WeChat donation QR code" width="300">
+[GPL-2.0-only](COPYING), inherited from ImmortalWrt. Third-party license texts are in [`LICENSES/`](LICENSES).
