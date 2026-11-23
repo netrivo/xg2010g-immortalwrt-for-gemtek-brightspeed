@@ -1,8 +1,8 @@
 # AN7581 CPU 时钟策略
 
 AN7581 子目标保留启动固件设置的 CPU 时钟，不由 Linux 改写 CPU PLL
-或调用 CPU DVFS 接口。此策略覆盖 XR1710G、XG2010G、Nokia
-XG-040G-MD/TF 以及其他共用 `an7581.dtsi` 的机型。
+或调用 CPU DVFS 接口。此策略来自 brightspeed 多机型仓库，覆盖所有共用
+`an7581.dtsi` 的机型；本仓库只保留 XG2010G。下文的实测数据来自 XR1710G。
 
 内核关闭 `CPU_FREQ`、`ARM_AIROHA_SOC_CPUFREQ` 和独立的
 `AIROHA_CPU_PM_DOMAIN`；设备树不再声明 CPU 调频 provider、OPP、性能域

@@ -19,14 +19,14 @@
 #   3. 唯一的 CONFIG_TARGET_<board>_<subtarget>_DEVICE_<name>=y；
 #      同时启用多个设备（multi-profile）时型号不明确，跳过推导；
 #   4. 沿用 config 里现有 CONFIG_VERSION_DIST 的设备名后缀
-#      （如 "ImmortalWrt naoki66 XG-040G-MD" -> "XG-040G-MD"），
+#      （如 "ImmortalWrt naoki66 XG2010G" -> "XG2010G"），
 #      保证种子 config 里手写的设备名仍能推导出默认主机名。
-# 归一化：先剥厂牌前缀（gemtek_/nokia_）与 -ubi 后缀，再查已知设备别名表
+# 归一化：先剥厂牌前缀 gemtek_ 与 -ubi 后缀，再查已知设备别名表
 # known_device_model；查不到时退化为大写原样输出。新增设备只需在别名表加一行。
 #
 # 默认主机名（LuCI: 系统 -> 系统 -> 主机名）：
 #   写入 CONFIG_TARGET_HOSTNAME，取简约化设备名
-#   （XG2010G / XR1710G / XG-040G-MD / XG-040G-TF ...）。
+#   （XG2010G）。
 #   该符号由 package/base-files/image-config.in 定义，package/base-files 安装时
 #   据此改写 bin/config_generate，首次启动生成 /etc/config/system 即使用该值。
 #   留空表示保持内置默认（ImmortalWrt）。
@@ -35,7 +35,7 @@
 #   VERSION_DIST            发行版名（默认 "ImmortalWrt naoki66 <设备型号>"，用于页脚等
 #                           展示；固件文件名会自动去掉型号后缀，避免重复）
 #   VERSION_PRODUCT         设备产品名（默认取识别到的设备型号，写入 os-release）
-#   DEVICE_HOSTNAME         默认主机名（默认取识别到的设备型号，如 XR1710G）
+#   DEVICE_HOSTNAME         默认主机名（默认取识别到的设备型号，如 XG2010G）
 #   BUILD_TZ                日期时区（默认 Asia/Shanghai）
 #   BUILD_DATE / BUILD_TIME 构建日期 YYYYMMDD（默认取当前时间）
 #   REPO_COMMIT / UPSTREAM_COMMIT / BUILD_ID  手动指定 commit / 构建号
@@ -49,24 +49,19 @@ set -euo pipefail
 config_file="${1:-.config}"
 
 # 已知设备别名表：profile 设备名（已剥厂牌前缀与 -ubi 后缀）-> 对外显示的设备型号。
-# 例：gemtek_xg2010g-ubi -> XG2010G；nokia_xg-040g-md-ubi -> XG-040G-MD
+# 例：gemtek_xg2010g-ubi -> XG2010G
 known_device_model() {
 	case "$1" in
 		xg2010g)    printf 'XG2010G' ;;
-		xr1710g)    printf 'XR1710G' ;;
-		xg-040g-md) printf 'XG-040G-MD' ;;
-		xg-040g-tf) printf 'XG-040G-TF' ;;
-		xg-040g-mf) printf 'XG-040G-MF' ;;
 		*) return 1 ;;
 	esac
 }
 
-# 归一化设备名：剥厂牌前缀（gemtek_/nokia_）与 -ubi 后缀，再查别名表；
+# 归一化设备名：剥厂牌前缀 gemtek_ 与 -ubi 后缀，再查别名表；
 # 别名表没有时退化为大写原样输出，兼容后续新增设备。
 normalize_device_model() {
 	local slug="$1"
 	slug="${slug#gemtek_}"
-	slug="${slug#nokia_}"
 	slug="${slug%-ubi}"
 	known_device_model "$slug" && return 0
 	[ -n "$slug" ] || return 1
@@ -74,7 +69,7 @@ normalize_device_model() {
 }
 
 # 从 config 现有的 CONFIG_VERSION_DIST 提取设备名后缀：
-# "ImmortalWrt naoki66 XG-040G-MD" -> "XG-040G-MD"；只有发行版名时返回失败。
+# "ImmortalWrt naoki66 XG2010G" -> "XG2010G"；只有发行版名时返回失败。
 detect_model_from_dist() {
 	local dist rest
 	dist="$(sed -n -e 's/^CONFIG_VERSION_DIST="\(.*\)"$/\1/p' "$config_file" | head -n 1)"
@@ -255,10 +250,8 @@ echo "Configured image name prefix: ${img_prefix}"
 
 # ---- 清理陈旧的外部内核模块 ----
 #
-# 三种设备除 DTS / 网卡 / WiFi 驱动外已收敛：040 / 1710 / 2010 种子的
-# CONFIG_KERNEL_* 完全一致。1710 原先单独打开 PERF_EVENTS / FTRACE / KPROBES /
-# BPF_EVENTS / XDP_SOCKETS 等，这些符号会改变内核 struct module 的布局；切到
-# 040/2010 重建后，残留的 .ko 加载时报
+# PERF_EVENTS / FTRACE / KPROBES / BPF_EVENTS / XDP_SOCKETS 等内核选项会改变
+# 内核 struct module 的布局；这些选项变化后，build_dir 里残留的 .ko 加载时报
 #   "section size must match the kernel's built struct module size at run time"
 # 并连带功能失效（例如 cryptodev.ko 挂掉会让 /dev/crypto 与 OpenSSL devcrypto
 # 引擎一起不可用）。

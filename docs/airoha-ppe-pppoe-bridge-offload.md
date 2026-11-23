@@ -143,9 +143,9 @@ config defaults
         option flow_offloading_hw '1'      # ← 生成 `flags offload`，缺此项只会软件加速
 ```
 
-本仓库对 XG-040G-MD、XG2010G（含 2 GiB 版）与 XR1710G 已由
-`target/linux/airoha/an7581/base-files/etc/uci-defaults/` 下的
-`18-xr1710g-firewall-defaults` 自动置这两项。
+XG2010G 的默认配置不会自动设置这两项（原先自动设置它们的
+`18-xr1710g-firewall-defaults` 只用于 XR1710G，已随该机型删除），需要在
+LuCI → 网络 → 防火墙中开启软件和硬件流量卸载，或手动写入上面的配置。
 
 ### 4.3 桥/VLAN 配置要点
 

@@ -1,0 +1,34 @@
+# Brightspeed additions that only serve Wi-Fi boards or removed tooling.
+# Shared by scripts/apply-xg2010g-trim.sh and scripts/check-xg2010g-only.sh.
+xg2010g_unused_paths=(
+	package/network/config/airoha-an7581-mt7996-board
+	target/linux/airoha/an7581/firmware
+	package/emortal/luci-app-mlo
+	package/emortal/clientstatus
+	package/emortal/luci-app-clientstatus
+	package/emortal/luci-i18n-clientstatus-zh-cn
+	configs
+	scripts/luci-ui-checks
+	scripts/remote-build.ps1
+	scripts/remote-build-runner.sh
+	scripts/remote-build-worker.sh
+	c6ea388c976395326514814f80d512d5.png
+	patches/feeds/packages/net/dawn
+	patches/feeds/packages/net/smartdns
+	.github/ISSUE_TEMPLATE
+	package/kernel/mac80211/patches/subsys/411-mac80211-export-link-sta-capability-limits.patch
+	package/network/services/hostapd/patches/015-mtk-hostapd-mtk-6G-band-does-not-require-DFS.patch
+	package/network/services/hostapd/patches/602-allow-config-EHT-rate.patch
+	package/kernel/mt76/patches/0003-wifi-mt76-notify-NPU-on-station-removal-to-flush-sta.patch
+	package/kernel/mt76/patches/110-mt7915-add-mt7916-cal-free-merge.patch
+	package/kernel/mt76/patches/126-mt76-npu-fix-rx-ring-handling.patch
+	package/kernel/mt76/patches/127-wifi-mt76-mt7996-reg_lock-irqsave-prevent-AP-panic.patch
+	package/kernel/mt76/patches/128-wifi-mt76-mt7996-restart-npu-on-full-chip-reset.patch
+	package/kernel/mt76/patches/129-wifi-mt76-mt7996-retry-npu-reinit-after-l1-ser.patch
+	package/kernel/mt76/patches/132-mt7996-guard-MCU-reset-before-registration.patch
+	package/kernel/mt76/patches/133-mt7996-reset-before-master-and-quiesce-on-shutdown.patch
+	package/kernel/mt76/patches/134-mt7996-use-five-second-channel-MIB-query-deadline.patch
+	package/kernel/mt76/patches/9993-wifi-mt76-mt7996-pass-operating-mode-to-rate-control.patch
+	package/kernel/mt76/patches/9994-wifi-mt76-mt7996-set-skb-device-for-npu-rx.patch
+	package/kernel/mt76/patches/9995-wifi-mt76-mt7996-advertise-beacon-protection.patch
+)

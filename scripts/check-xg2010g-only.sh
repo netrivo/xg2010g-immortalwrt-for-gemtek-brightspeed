@@ -82,6 +82,11 @@ for path in \
 	[[ ! -e "$path" ]] || err "obsolete path still exists: $path"
 done
 
+. scripts/xg2010g-unused-paths.sh
+for path in "${xg2010g_unused_paths[@]}"; do
+	[[ ! -e "$path" ]] || err "unused path still exists: $path"
+done
+
 if grep -Eq '^src-git .*(easytier|ac_agent)' feeds.conf.default; then
 	err "feeds.conf.default still contains easytier/ac_agent"
 fi

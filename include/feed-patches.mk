@@ -25,8 +25,8 @@
 # this target runs *before* prepare-tmpinfo's own recipe, which is what creates
 # feeds/ in the first place, so on a fresh checkout the feed is legitimately
 # absent and the patched package is not in the tree either. Failing here would
-# break `make menuconfig` on a clean tree. The CI and remote-build-worker
-# entry points, which always fetch feeds first, export FEED_PATCHES_STRICT=1 to
+# break `make menuconfig` on a clean tree. CI, which always fetches feeds
+# first, exports FEED_PATCHES_STRICT=1 to
 # get the opposite behaviour: a missing feed there means the feed layout moved
 # and the patch would silently stop being applied.
 #

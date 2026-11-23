@@ -1,6 +1,6 @@
 # pppd 脚本子进程 use-after-free：PPPoE 拨号成功但没有默认路由
 
-适用范围：`naoki66/ImmortalWrt-for-Pon`，`airoha/an7581`，XG2010G / XG-040G-MD，
+适用范围：`naoki66/ImmortalWrt-for-Pon`，`airoha/an7581`，XG2010G（问题最初也在已不再维护的 XG-040G-MD 上复现），
 `DISTRIB_REVISION 2026-10-14-37a89d4a3b`（含 `CONFIG_PACKAGE_ppp-multilink=y`）。
 
 ## 症状

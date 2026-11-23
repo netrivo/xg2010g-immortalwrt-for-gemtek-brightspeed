@@ -26,8 +26,8 @@
 #
 # Idempotent. A missing preferred feed is skipped with a warning rather than
 # failing: on a fresh checkout this runs before ./scripts/feeds update -a has
-# fetched the feeds. Set FEED_PATCHES_STRICT=1 (CI and
-# scripts/remote-build-worker.sh do) to turn that into a failure.
+# fetched the feeds. Set FEED_PATCHES_STRICT=1 (CI does) to turn that into a
+# failure.
 
 set -Eeuo pipefail
 

@@ -8,6 +8,9 @@ rm -rf package/boot/uboot-airoha target/linux/airoha/an7583/base-files
 rm -f package/boot/uboot-tools/uboot-envtools/files/airoha_an7583
 rm -f 1710.config 040.config 040-tf.config config.seed
 rm -f .github/workflows/sync-upstream.yml
+# 只服务 Wi-Fi 机型或已删除工具链的 brightspeed 新增内容
+. scripts/xg2010g-unused-paths.sh
+rm -rf "${xg2010g_unused_paths[@]}"
 
 # 2. an7581.mk 只保留 XG2010G 的 Device 定义和 TARGET_DEVICES
 python3 - <<'PY'
