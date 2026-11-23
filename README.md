@@ -282,7 +282,7 @@ ccache 只在 CI 中开启，不改动 `2010.config`。
 每次推送和 PR 会自动运行 [Check](.github/workflows/check.yml)（约 1 分钟）：脚本语法、XG2010G-only 裁剪、
 distfeeds、PON 链路看门狗和升级插件恢复的测试。
 
-发布一个版本：
+发布一个版本（完整流程、真机验收清单和失败处理见 [发布流程](docs/release.md)）：
 
 ```bash
 git switch main && git pull
@@ -432,6 +432,7 @@ bash scripts/check-restore-packages.sh
 
 ## 技术文档
 
+- [发布流程](docs/release.md)：版本号、打 tag、真机验收、rc 转正式版、撤回有问题的版本
 - [Airoha 桥接 flowtable 卸载](docs/airoha-bridge-flowtable-offload.md)
 - [Airoha PPE PPPoE 桥接卸载](docs/airoha-ppe-pppoe-bridge-offload.md) 及其[验证记录](docs/airoha-bridge-pppoe-offload-verification.md)
 - [AN7581 CPU 频率策略](docs/an7581-cpu-clock-policy.md)
