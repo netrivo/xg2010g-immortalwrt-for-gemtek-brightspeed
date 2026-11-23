@@ -18,6 +18,10 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # ccache is enabled for CI builds only (see the Configure step).  The cache
+  # is stored uncompressed (rules.mk sets CCACHE_NOCOMPRESS), so cap its size
+  # to stay well inside the repository's 10 GB Actions cache quota.
+  CCACHE_MAXSIZE: 3G
 
 concurrency:
   group: xg2010g-firmware
@@ -46,6 +50,31 @@ jobs:
         run: |
           git clone --quiet --local "$GITHUB_WORKSPACE" /home/runner/w
           git -C /home/runner/w checkout --quiet --detach "$GITHUB_SHA"
+
+      - name: Free disk space
+        working-directory: ${{ github.workspace }}
+        run: |
+          # Preinstalled SDKs the firmware build never uses.  Removing them
+          # leaves room for the restored download and compiler caches.
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Restore download cache
+        uses: actions/cache/restore@v6
+        with:
+          path: /home/runner/w/dl
+          key: dl-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: dl-
+
+      - name: Restore compiler cache
+        uses: actions/cache/restore@v6
+        with:
+          path: /home/runner/w/.ccache
+          key: ccache-${{ hashFiles('target/linux/generic/kernel-6.18') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            ccache-${{ hashFiles('target/linux/generic/kernel-6.18') }}-
+            ccache-
 
       - name: Generate build version
         id: version
@@ -93,7 +122,11 @@ jobs:
         run: |
           bash scripts/apply-xg2010g-package-policy.sh 2010.config
           cp 2010.config .config
+          # CI-only: compile through ccache so the cache restored above is
+          # reused.  Local builds keep 2010.config unchanged.
+          printf '%s\n' CONFIG_DEVEL=y CONFIG_CCACHE=y >> .config
           make defconfig
+          grep -qx 'CONFIG_CCACHE=y' .config
           BUILD_DATE='${{ steps.version.outputs.date }}' \
           BUILD_ID='${{ steps.version.outputs.build_id }}' \
           REPO_COMMIT='${{ steps.version.outputs.repo_commit }}' \
@@ -126,12 +159,14 @@ jobs:
           ' tmp/.packageinfo
 
       - name: Download sources
+        id: download
         shell: bash
         run: |
           set -o pipefail
           make download -j$(nproc) BUILD_LOG=1 2>&1 | tee download.log
 
       - name: Build Firmware
+        id: build
         shell: bash
         run: |
           rm -f build.status
@@ -187,6 +222,26 @@ jobs:
             tail -150 build.log || true
           fi
 
+      - name: Save download cache
+        if: always() && steps.download.outcome == 'success'
+        uses: actions/cache/save@v6
+        with:
+          path: /home/runner/w/dl
+          key: dl-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Save compiler cache
+        # Saved even when the build fails, so the next attempt resumes from
+        # everything that compiled before the failure.
+        if: always() && steps.build.outcome != 'skipped'
+        uses: actions/cache/save@v6
+        with:
+          path: /home/runner/w/.ccache
+          key: ccache-${{ hashFiles('target/linux/generic/kernel-6.18') }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Show compiler cache statistics
+        if: always() && steps.build.outcome != 'skipped'
+        run: staging_dir/host/bin/ccache -s || true
+
       - name: Verify device isolation
         shell: bash
         run: |
@@ -208,6 +263,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUILD_ID: ${{ steps.version.outputs.build_id }}
+          RELEASE_TYPE: ${{ github.event.inputs.release_type }}
         run: |
           set -euo pipefail
           topdir=$PWD
@@ -216,7 +272,16 @@ jobs:
           test -n "$arch"
           test -n "$pkgall"
           work=$(mktemp -d)
-          mkdir -p "$work/$BUILD_ID/kmods"
+          mkdir -p "$work/$BUILD_ID/kmods" "$work/$BUILD_ID/local"
+
+          sign_index() {
+            (
+              cd "$1"
+              "$topdir/staging_dir/host/bin/apk" mkndx \
+                --root "$topdir" --keys-dir "$topdir" --allow-untrusted \
+                --sign "$topdir/private-key.pem" --output packages.adb ./*.apk
+            )
+          }
 
           # Only optional third-party feeds are published.  Device feeds are
           # installed into the image, and the official distfeeds provide the
@@ -240,12 +305,26 @@ jobs:
             found=1
           done < <(find "$pkgall" -maxdepth 1 -name 'kmod-*.apk' -print0)
           [ "$found" -eq 1 ]
-          (
-            cd "$work/$BUILD_ID/kmods"
-            "$topdir/staging_dir/host/bin/apk" mkndx \
-              --root "$topdir" --keys-dir "$topdir" --allow-untrusted \
-              --sign "$topdir/private-key.pem" --output packages.adb ./*.apk
-          )
+          sign_index "$work/$BUILD_ID/kmods"
+
+          # Optional packages built from this repository's own package/ tree
+          # land in the base feed, which the official distfeeds do not carry.
+          # Keep this list in sync with scripts/set-extras-repo.sh.
+          for name in lucky luci-app-lucky luci-i18n-lucky-zh-cn; do
+            mapfile -t apks < <(find "bin/packages/$arch/base" -maxdepth 1 -name "$name-[0-9]*.apk")
+            (( ${#apks[@]} == 1 )) || {
+              echo "expected one $name package in the base feed, found ${#apks[@]}" >&2
+              exit 1
+            }
+            cp -aL "${apks[0]}" "$work/$BUILD_ID/local/"
+          done
+          sign_index "$work/$BUILD_ID/local"
+
+          # Release builds keep their extras for good, so devices running any
+          # published release can still install optional packages.
+          if [[ "$RELEASE_TYPE" == release || "$RELEASE_TYPE" == prerelease ]]; then
+            touch "$work/$BUILD_ID/.release"
+          fi
 
           remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           repo=$(mktemp -d)
@@ -261,17 +340,17 @@ jobs:
           rm -rf "$repo/$BUILD_ID"
           cp -a "$work/$BUILD_ID" "$repo/"
 
-          # Keep the three newest build directories.  Each build carries a few
-          # hundred MB of .apk files, so retaining ten would push the branch
-          # toward GitHub's repository size limit and make every publish clone
-          # unnecessarily large.  Raw URLs for older builds stop working after
-          # that point; OTA always uses the new image's build ID.
+          # Keep the three newest build directories plus every release build.
+          # Unreleased builds older than that are dropped to keep the branch
+          # small; their raw URLs stop working, which only affects devices
+          # running an unreleased Actions artifact.
           mapfile -t builds < <(
             find "$repo" -maxdepth 1 -mindepth 1 -type d -name '[0-9]*' \
               -printf '%f\n' | LC_ALL=C sort
           )
           if (( ${#builds[@]} > 3 )); then
             for old in "${builds[@]:0:${#builds[@]}-3}"; do
+              [[ -e "$repo/$old/.release" ]] && continue
               rm -rf "$repo/$old"
             done
           fi

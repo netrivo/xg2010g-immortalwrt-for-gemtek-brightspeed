@@ -37,9 +37,12 @@ mkdir -p files/etc/apk/repositories.d
 		echo "$base/$feed/packages.adb"
 	done
 	echo "$base/kmods/packages.adb"
+	# Optional packages from this repository's own package/ tree (lucky).
+	echo "$base/local/packages.adb"
 } > files/etc/apk/repositories.d/xg2010g.list
 
 for feed in $feeds; do
 	echo "extras feed: $base/$feed/packages.adb"
 done
 echo "extras feed: $base/kmods/packages.adb"
+echo "extras feed: $base/local/packages.adb"
